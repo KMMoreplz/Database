@@ -1,0 +1,135 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Справка по банковским продуктам</h2>
+  <form class="grid-form" method="get" id="product-filter-form">
+    <label>Продукт
+      <select id="type_name" name="type_name">
+        <option value="">Все</option>
+        {% for item in type_names %}
+        <option value="{{ item }}" {% if type_name == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Банк
+      <select id="bank_name" name="bank_name">
+        <option value="">Все</option>
+        {% for item in bank_names %}
+        <option value="{{ item }}" {% if bank_name == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Валюта
+      <select id="currency_code" name="currency_code">
+        <option value="">Все</option>
+        {% for item in currency_codes %}
+        <option value="{{ item }}" {% if currency_code == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <button type="submit">Искать</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Найдено записей: {{ rows|length }}</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Название</th>
+          <th>Продукт</th>
+          <th>Банк</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.id }}</td>
+          <td>{{ row.product_name }}</td>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.bank_name }}</td>
+          <td>{{ row.currency_code }}</td>
+          <td>{{ row.interest_rate }}</td>
+          <td>{{ row.min_deposit }}</td>
+          <td>{{ row.term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  const matrix = {{ matrix | tojson }};
+  const typeSelect = document.getElementById('type_name');
+  const bankSelect = document.getElementById('bank_name');
+  const currencySelect = document.getElementById('currency_code');
+
+  function unique(values) {
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+  }
+
+  function filterRows() {
+    const t = typeSelect.value;
+    const b = bankSelect.value;
+    const c = currencySelect.value;
+
+    return matrix.filter((row) => {
+      const typeOk = !t || row.type_name === t;
+      const bankOk = !b || row.bank_name === b;
+      const currencyOk = !c || row.currency_code === c;
+      return typeOk && bankOk && currencyOk;
+    });
+  }
+
+  function refillSelect(selectEl, values, currentValue) {
+    const nextValues = unique(values);
+    selectEl.innerHTML = '';
+
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = 'Все';
+    selectEl.appendChild(emptyOption);
+
+    nextValues.forEach((value) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      selectEl.appendChild(option);
+    });
+
+    if (currentValue && nextValues.includes(currentValue)) {
+      selectEl.value = currentValue;
+    } else {
+      selectEl.value = '';
+    }
+  }
+
+  function syncSelects() {
+    const rows = filterRows();
+
+    const typeCurrent = typeSelect.value;
+    const bankCurrent = bankSelect.value;
+    const currencyCurrent = currencySelect.value;
+
+    refillSelect(typeSelect, rows.map((r) => r.type_name), typeCurrent);
+    refillSelect(bankSelect, rows.map((r) => r.bank_name), bankCurrent);
+    refillSelect(currencySelect, rows.map((r) => r.currency_code), currencyCurrent);
+  }
+
+  typeSelect.addEventListener('change', syncSelects);
+  bankSelect.addEventListener('change', syncSelects);
+  currencySelect.addEventListener('change', syncSelects);
+
+  syncSelects();
+</script>
+{% endblock %}

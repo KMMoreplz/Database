@@ -1,0 +1,225 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Управление данными</h2>
+  {% if message %}
+    <p class="ok">{{ message }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h3>Добавить банк</h3>
+  <form class="grid-form" method="post" action="/manage/banks">
+    <label>Название банка
+      <input name="bank_name" required />
+    </label>
+    <label>Лицензия
+      <input name="license_no" required />
+    </label>
+    <label>Рейтинг
+      <input name="rating" value="AAA" required />
+    </label>
+    <button type="submit">Создать банк</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Добавить продукт</h3>
+  <form class="grid-form" method="post" action="/manage/products">
+    <label>Название продукта
+      <input name="product_title" required />
+    </label>
+
+    <label>Банк
+      <select name="bank_id" required>
+        {% for b in banks %}
+        <option value="{{ b.id }}">{{ b.bank_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Тип продукта
+      <div class="inline-with-action">
+        <select name="type_id" required>
+          {% for t in types %}
+          <option value="{{ t.id }}">{{ t.type_name }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="plus-btn" onclick="openDialog('typeDialog')">+</button>
+      </div>
+    </label>
+
+    <label>Уровень риска
+      <select name="risk_id" required>
+        {% for r in risks %}
+        <option value="{{ r.id }}">{{ r.category }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Валюта
+      <div class="inline-with-action">
+        <select name="currency_id" required>
+          {% for c in currencies %}
+          <option value="{{ c.id }}">{{ c.currency_code }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="plus-btn" onclick="openDialog('currencyDialog')">+</button>
+      </div>
+    </label>
+
+    <label>Ставка, %
+      <input name="interest_rate" type="number" min="0" max="30" step="0.01" title="Allowed range: 0..30" required />
+      <span class="field-note" title="Allowed range: 0..30">Range: 0..30</span>
+    </label>
+
+    <label>Мин. взнос
+      <input name="min_deposit" type="number" min="0" max="1000000" step="0.01" title="Allowed range: 0..1 000 000" required />
+      <span class="field-note" title="Allowed range: 0..1 000 000">Range: 0..1 000 000</span>
+    </label>
+
+    <label>Срок, мес
+      <input name="term_months" type="number" min="0" max="600" title="Allowed range: 0..600" required />
+      <span class="field-note" title="Allowed range: 0..600">Range: 0..600</span>
+    </label>
+
+    <label>Описание
+      <input name="description" />
+    </label>
+
+    <button type="submit">Создать продукт</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Редактирование любой записи</h3>
+  <form class="grid-form" method="get" action="/manage">
+    <label>Выбор по названию
+      <select name="selected_product_id">
+        {% for p in product_options %}
+        <option value="{{ p.id }}" {% if selected_product_id == p.id %}selected{% endif %}>
+          {{ p.product_title }} ({{ p.bank_name }}) [ID={{ p.id }}]
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Или ручной ввод ID
+      <input name="selected_product_id_manual" type="number" min="1" placeholder="Введите ID" />
+    </label>
+
+    <button type="submit">Открыть для редактирования</button>
+  </form>
+
+  {% if selected_product %}
+  <div class="card inner-card">
+    <h4>Редактирование: {{ selected_product.product_title }} (ID={{ selected_product.id }})</h4>
+
+    <form class="grid-form" method="post" action="/manage/products/{{ selected_product.id }}/full">
+      <label>Название продукта
+        <input name="product_title" value="{{ selected_product.product_title }}" required />
+      </label>
+
+      <label>Банк
+        <select name="bank_id" required>
+          {% for b in banks %}
+          <option value="{{ b.id }}" {% if selected_product.bank_id == b.id %}selected{% endif %}>{{ b.bank_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Тип продукта
+        <select name="type_id" required>
+          {% for t in types %}
+          <option value="{{ t.id }}" {% if selected_product.type_id == t.id %}selected{% endif %}>{{ t.type_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Уровень риска
+        <select name="risk_id" required>
+          {% for r in risks %}
+          <option value="{{ r.id }}" {% if selected_product.risk_id == r.id %}selected{% endif %}>{{ r.category }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Валюта
+        <select name="currency_id" required>
+          {% for c in currencies %}
+          <option value="{{ c.id }}" {% if selected_product.currency_id == c.id %}selected{% endif %}>{{ c.currency_code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Ставка, %
+        <input name="interest_rate" type="number" min="0" max="30" step="0.01" title="Allowed range: 0..30" value="{{ selected_product.interest_rate }}" required />
+        <span class="field-note" title="Allowed range: 0..30">Range: 0..30</span>
+      </label>
+
+      <label>Мин. взнос
+        <input name="min_deposit" type="number" min="0" max="1000000" step="0.01" title="Allowed range: 0..1 000 000" value="{{ selected_product.min_deposit }}" required />
+        <span class="field-note" title="Allowed range: 0..1 000 000">Range: 0..1 000 000</span>
+      </label>
+
+      <label>Срок, мес
+        <input name="term_months" type="number" min="0" max="600" title="Allowed range: 0..600" value="{{ selected_product.term_months }}" required />
+        <span class="field-note" title="Allowed range: 0..600">Range: 0..600</span>
+      </label>
+
+      <label>Описание
+        <input name="description" value="{{ selected_product.description if selected_product.description else '' }}" />
+      </label>
+
+      <label class="checkbox-label">
+        <input name="is_active" type="checkbox" {% if selected_product.is_active %}checked{% endif %} />
+        Активный продукт
+      </label>
+
+      <button type="submit">Сохранить все изменения</button>
+    </form>
+
+    <form method="post" action="/manage/products/{{ selected_product.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить запись безвозвратно?');">
+      <button type="submit" class="danger-btn">Удалить запись</button>
+    </form>
+  </div>
+  {% endif %}
+</section>
+
+<dialog id="typeDialog" class="mini-dialog">
+  <form method="post" action="/manage/product-types" class="grid-form dialog-form">
+    <h4>Новый тип продукта</h4>
+    <label>Название типа
+      <input name="type_name" required />
+    </label>
+    <div class="dialog-actions">
+      <button type="submit">Добавить</button>
+      <button type="button" onclick="closeDialog('typeDialog')">Отмена</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="currencyDialog" class="mini-dialog">
+  <form method="post" action="/manage/currencies" class="grid-form dialog-form">
+    <h4>Новая валюта</h4>
+    <label>Код валюты
+      <input name="currency_code" maxlength="3" required />
+    </label>
+    <div class="dialog-actions">
+      <button type="submit">Добавить</button>
+      <button type="button" onclick="closeDialog('currencyDialog')">Отмена</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  function openDialog(id) {
+    const dialog = document.getElementById(id);
+    if (dialog) dialog.showModal();
+  }
+  function closeDialog(id) {
+    const dialog = document.getElementById(id);
+    if (dialog) dialog.close();
+  }
+</script>
+{% endblock %}

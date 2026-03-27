@@ -1,0 +1,43 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Справка по банкам</h2>
+  <form class="grid-form" method="get">
+    <label>Кредитный рейтинг
+      <select name="rating">
+        <option value="">Все</option>
+        {% for item in ratings %}
+        <option value="{{ item }}" {% if rating == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Искать</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Найдено записей: {{ rows|length }}</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Название банка</th>
+          <th>Лицензия</th>
+          <th>Рейтинг</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.id }}</td>
+          <td>{{ row.bank_name }}</td>
+          <td>{{ row.license_no }}</td>
+          <td>{{ row.rating }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

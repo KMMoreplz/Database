@@ -1,0 +1,183 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Аналитика по банкам</h2>
+  <p>Рынок: средняя ставка <b>{{ market.avg_rate }}</b>%, средний порог входа <b>{{ market.avg_deposit }}</b>, средний срок <b>{{ market.avg_term }}</b> мес.</p>
+</section>
+
+<section class="card">
+  <h3>Банки</h3>
+  <div class="bank-grid">
+    {% for card in cards %}
+    <a class="bank-chip {% if selected_bank_id == card.id %}active{% endif %}" href="/analytics?selected_bank_id={{ card.id }}">
+      <span class="chip-title">{{ card.bank_name }}</span>
+      <span class="chip-meta">Продуктов: {{ card.product_count }}</span>
+      <span class="chip-meta">Ср. ставка: {{ card.avg_rate }}%</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% if selected %}
+<section class="card">
+  <h3>{{ selected.bank.bank_name }}</h3>
+  <p>Лицензия: {{ selected.bank.license_no }} | Рейтинг: {{ selected.bank.rating }}</p>
+
+  <div class="card-grid analytics-grid">
+    <article class="mini-card">
+      <h4>Всего продуктов</h4>
+      <p class="big small">{{ selected.summary.total_products }}</p>
+    </article>
+    <article class="mini-card">
+      <h4>Средняя ставка</h4>
+      <p class="big small">{{ selected.summary.avg_rate }}%</p>
+      <p class="hint">{{ selected.phrases.rate }}</p>
+    </article>
+    <article class="mini-card">
+      <h4>Средний мин. взнос</h4>
+      <p class="big small">{{ selected.summary.avg_deposit }}</p>
+      <p class="hint">{{ selected.phrases.deposit }}</p>
+    </article>
+    <article class="mini-card">
+      <h4>Средний срок</h4>
+      <p class="big small">{{ selected.summary.avg_term }} мес</p>
+      <p class="hint">{{ selected.phrases.term }}</p>
+    </article>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Количество продуктов по типам</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Тип продукта</th>
+          <th>Количество</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in selected.by_type %}
+        <tr>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Продукты выбранного банка</h3>
+  <div class="table-wrap tall">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Название</th>
+          <th>Тип</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in selected.products %}
+        <tr>
+          <td>{{ row.id }}</td>
+          <td>{{ row.product_title }}</td>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.currency_code }}</td>
+          <td>{{ row.interest_rate }}</td>
+          <td>{{ row.min_deposit }}</td>
+          <td>{{ row.term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <h3>Средняя ставка по типам продуктов (вне зависимости от банка)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Тип продукта</th>
+          <th>Количество</th>
+          <th>Средняя ставка, %</th>
+          <th>Средний мин. взнос</th>
+          <th>Средний срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in type_analytics %}
+        <tr>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.total_products }}</td>
+          <td>{{ row.avg_rate }}</td>
+          <td>{{ row.avg_min_deposit }}</td>
+          <td>{{ row.avg_term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Топ-5 по ставке</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Банк</th>
+          <th>Тип</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in top_products %}
+        <tr>
+          <td>{{ row.product_title }}</td>
+          <td>{{ row.bank_name }}</td>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.interest_rate }}</td>
+          <td>{{ row.min_deposit }}</td>
+          <td>{{ row.term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Распределение продуктов по валютам</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Валюта</th>
+          <th>Количество продуктов</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in currency_stats %}
+        <tr>
+          <td>{{ row.currency_code }}</td>
+          <td>{{ row.products_count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
