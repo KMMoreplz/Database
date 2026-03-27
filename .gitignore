@@ -8,3 +8,5 @@ venv/
 postgres_data/
 CHEATSHEET.md
 /context
+DOCUMENTATION.md
+README.md
