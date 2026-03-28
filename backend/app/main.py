@@ -43,6 +43,28 @@ DEPOSIT_MIN = 0.0
 DEPOSIT_MAX = 1_000_000.0
 TERM_MIN = 0
 TERM_MAX = 600
+DEFAULT_RATING_CHOICES = [
+    "AAA",
+    "AA+",
+    "AA",
+    "AA-",
+    "A+",
+    "A",
+    "A-",
+    "BBB+",
+    "BBB",
+    "BBB-",
+    "BB+",
+    "BB",
+    "BB-",
+    "B+",
+    "B",
+    "B-",
+    "CCC",
+    "CC",
+    "C",
+    "D",
+]
 
 
 def validate_product_limits(interest_rate: float, min_deposit: float, term_months: int):
@@ -820,6 +842,16 @@ def manage_page(
     types = db.execute(select(ProductType).order_by(ProductType.type_name)).scalars().all()
     risks = db.execute(select(RiskLevel).order_by(RiskLevel.id)).scalars().all()
     currencies = db.execute(select(Currency).order_by(Currency.currency_code)).scalars().all()
+    ratings_from_db = (
+        db.execute(select(Bank.rating).distinct().where(Bank.rating.is_not(None)).order_by(Bank.rating))
+        .scalars()
+        .all()
+    )
+    rating_choices: list[str] = []
+    for rating_value in [*DEFAULT_RATING_CHOICES, *ratings_from_db]:
+        clean_value = (rating_value or "").strip().upper()
+        if clean_value and clean_value not in rating_choices:
+            rating_choices.append(clean_value)
 
     product_options = (
         db.execute(
@@ -831,9 +863,6 @@ def manage_page(
         .all()
     )
     product_options = [row_to_dict(r) for r in product_options]
-
-    if not selected_product_id and product_options:
-        selected_product_id = int(product_options[0]["id"])
 
     selected_product = None
     if selected_product_id:
@@ -885,6 +914,7 @@ def manage_page(
             "types": types,
             "risks": risks,
             "currencies": currencies,
+            "rating_choices": rating_choices,
         },
     )
 
@@ -1005,3 +1035,4 @@ def manage_update_product_full(
 def manage_delete_product(product_id: int, db: Session = Depends(get_db)):
     delete_product(db, product_id)
     return RedirectResponse(url="/manage?message=product-deleted", status_code=303)
+

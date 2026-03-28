@@ -9,13 +9,13 @@
 <body>
   <header class="topbar">
     <h1>{{ site_title }}</h1>
+    {% set current_path = request.url.path %}
     <nav>
-      <a href="/">Главная</a>
-      <a href="/products">Продукты</a>
-      <a href="/banks">Банки</a>
-      <a href="/analytics">Аналитика</a>
-      <a href="/manage">Управление</a>
-      <a href="/docs">API Docs</a>
+      <a class="nav-link {% if current_path == '/' %}active{% endif %}" href="/">Главная</a>
+      <a class="nav-link nav-green {% if current_path == '/products' %}active{% endif %}" href="/products">Продукты</a>
+      <a class="nav-link nav-green {% if current_path == '/banks' %}active{% endif %}" href="/banks">Банки</a>
+      <a class="nav-link nav-green {% if current_path == '/analytics' %}active{% endif %}" href="/analytics">Аналитика</a>
+      <a class="nav-link nav-admin {% if current_path == '/manage' %}active{% endif %}" id="manage-nav-link" href="/manage">Управление</a>
     </nav>
   </header>
 
@@ -27,5 +27,16 @@
     <div>{{ current_year }} • {{ footer_db_name }}</div>
     <div>{{ footer_site_desc }}</div>
   </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const manageLink = document.getElementById('manage-nav-link');
+      if (!manageLink) return;
+
+      manageLink.addEventListener('click', function () {
+        alert('Вкладка "Управление" предназначена для администратора. Это учебная заглушка административного раздела.');
+      });
+    });
+  </script>
 </body>
 </html>

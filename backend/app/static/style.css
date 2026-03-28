@@ -6,6 +6,10 @@
   --line: #dde5ef;
   --accent: #0f7b9a;
   --danger: #b91c1c;
+  --tab-green: #228b22;
+  --tab-green-dark: #1b6f1b;
+  --tab-red: #b42318;
+  --tab-red-dark: #8d1b12;
 }
 
 * {
@@ -40,13 +44,38 @@ body {
 .topbar nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
-.topbar a {
+.nav-link {
   color: #d8edf5;
   text-decoration: none;
   font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(216, 237, 245, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-link:hover {
+  filter: brightness(1.05);
+}
+
+.nav-link.active {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 1px;
+}
+
+.nav-link.nav-green {
+  background: var(--tab-green);
+  border-color: var(--tab-green-dark);
+  color: #ffffff;
+}
+
+.nav-link.nav-admin {
+  background: var(--tab-red);
+  border-color: var(--tab-red-dark);
+  color: #ffffff;
 }
 
 main {
@@ -172,6 +201,28 @@ button {
   font-weight: 600;
 }
 
+.form-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #b8c7d8;
+  background: #ffffff;
+  color: #1f3b53;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .inline-with-action {
   display: flex;
   gap: 8px;
@@ -207,6 +258,11 @@ button {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.warn {
+  color: #92400e;
+  font-weight: 600;
 }
 
 .danger-form {

@@ -6,7 +6,6 @@ services:
       POSTGRES_DB: banklab
       POSTGRES_USER: bankuser
       POSTGRES_PASSWORD: bankpass
-    ports:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro

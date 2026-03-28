@@ -13,89 +13,37 @@
     <label>Название банка
       <input name="bank_name" required />
     </label>
+
     <label>Лицензия
-      <input name="license_no" required />
+      <input
+        name="license_no"
+        required
+        pattern="№[0-9]{4,10}"
+        placeholder="№123456"
+        title="Формат: № и от 4 до 10 цифр"
+      />
+      <span class="field-note">Пример: №123456</span>
     </label>
+
     <label>Рейтинг
-      <input name="rating" value="AAA" required />
+      <select name="rating" required>
+        {% for item in rating_choices %}
+        <option value="{{ item }}">{{ item }}</option>
+        {% endfor %}
+      </select>
     </label>
+
     <button type="submit">Создать банк</button>
   </form>
 </section>
 
 <section class="card">
-  <h3>Добавить продукт</h3>
-  <form class="grid-form" method="post" action="/manage/products">
-    <label>Название продукта
-      <input name="product_title" required />
-    </label>
+  <h3>Продукты: добавление и редактирование</h3>
 
-    <label>Банк
-      <select name="bank_id" required>
-        {% for b in banks %}
-        <option value="{{ b.id }}">{{ b.bank_name }}</option>
-        {% endfor %}
-      </select>
-    </label>
-
-    <label>Тип продукта
-      <div class="inline-with-action">
-        <select name="type_id" required>
-          {% for t in types %}
-          <option value="{{ t.id }}">{{ t.type_name }}</option>
-          {% endfor %}
-        </select>
-        <button type="button" class="plus-btn" onclick="openDialog('typeDialog')">+</button>
-      </div>
-    </label>
-
-    <label>Уровень риска
-      <select name="risk_id" required>
-        {% for r in risks %}
-        <option value="{{ r.id }}">{{ r.category }}</option>
-        {% endfor %}
-      </select>
-    </label>
-
-    <label>Валюта
-      <div class="inline-with-action">
-        <select name="currency_id" required>
-          {% for c in currencies %}
-          <option value="{{ c.id }}">{{ c.currency_code }}</option>
-          {% endfor %}
-        </select>
-        <button type="button" class="plus-btn" onclick="openDialog('currencyDialog')">+</button>
-      </div>
-    </label>
-
-    <label>Ставка, %
-      <input name="interest_rate" type="number" min="0" max="30" step="0.01" title="Allowed range: 0..30" required />
-      <span class="field-note" title="Allowed range: 0..30">Range: 0..30</span>
-    </label>
-
-    <label>Мин. взнос
-      <input name="min_deposit" type="number" min="0" max="1000000" step="0.01" title="Allowed range: 0..1 000 000" required />
-      <span class="field-note" title="Allowed range: 0..1 000 000">Range: 0..1 000 000</span>
-    </label>
-
-    <label>Срок, мес
-      <input name="term_months" type="number" min="0" max="600" title="Allowed range: 0..600" required />
-      <span class="field-note" title="Allowed range: 0..600">Range: 0..600</span>
-    </label>
-
-    <label>Описание
-      <input name="description" />
-    </label>
-
-    <button type="submit">Создать продукт</button>
-  </form>
-</section>
-
-<section class="card">
-  <h3>Редактирование любой записи</h3>
   <form class="grid-form" method="get" action="/manage">
     <label>Выбор по названию
       <select name="selected_product_id">
+        <option value="">Новый продукт (режим добавления)</option>
         {% for p in product_options %}
         <option value="{{ p.id }}" {% if selected_product_id == p.id %}selected{% endif %}>
           {{ p.product_title }} ({{ p.bank_name }}) [ID={{ p.id }}]
@@ -108,82 +56,115 @@
       <input name="selected_product_id_manual" type="number" min="1" placeholder="Введите ID" />
     </label>
 
-    <button type="submit">Открыть для редактирования</button>
+    <div class="form-actions">
+      <button type="submit">Открыть для редактирования</button>
+      <a class="ghost-btn" href="/manage">Новый продукт</a>
+    </div>
   </form>
 
-  {% if selected_product %}
-  <div class="card inner-card">
-    <h4>Редактирование: {{ selected_product.product_title }} (ID={{ selected_product.id }})</h4>
+  {% if selected_product_id and not selected_product %}
+    <p class="warn">Запись с выбранным ID не найдена. Переключен режим добавления нового продукта.</p>
+  {% endif %}
 
-    <form class="grid-form" method="post" action="/manage/products/{{ selected_product.id }}/full">
+  <div class="card inner-card">
+    <h4>
+      {% if selected_product %}
+      Редактирование: {{ selected_product.product_title }} (ID={{ selected_product.id }})
+      {% else %}
+      Добавление нового продукта
+      {% endif %}
+    </h4>
+
+    <form
+      class="grid-form"
+      method="post"
+      id="product-form"
+      action="{% if selected_product %}/manage/products/{{ selected_product.id }}/full{% else %}/manage/products{% endif %}"
+    >
       <label>Название продукта
-        <input name="product_title" value="{{ selected_product.product_title }}" required />
+        <input name="product_title" value="{{ selected_product.product_title if selected_product else '' }}" required />
       </label>
 
       <label>Банк
         <select name="bank_id" required>
           {% for b in banks %}
-          <option value="{{ b.id }}" {% if selected_product.bank_id == b.id %}selected{% endif %}>{{ b.bank_name }}</option>
+          <option value="{{ b.id }}" {% if selected_product and selected_product.bank_id == b.id %}selected{% endif %}>{{ b.bank_name }}</option>
           {% endfor %}
         </select>
       </label>
 
       <label>Тип продукта
-        <select name="type_id" required>
-          {% for t in types %}
-          <option value="{{ t.id }}" {% if selected_product.type_id == t.id %}selected{% endif %}>{{ t.type_name }}</option>
-          {% endfor %}
-        </select>
+        <div class="inline-with-action">
+          <select name="type_id" required>
+            {% for t in types %}
+            <option value="{{ t.id }}" {% if selected_product and selected_product.type_id == t.id %}selected{% endif %}>{{ t.type_name }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="plus-btn" onclick="openDialog('typeDialog')">+</button>
+        </div>
       </label>
 
       <label>Уровень риска
         <select name="risk_id" required>
           {% for r in risks %}
-          <option value="{{ r.id }}" {% if selected_product.risk_id == r.id %}selected{% endif %}>{{ r.category }}</option>
+          <option value="{{ r.id }}" {% if selected_product and selected_product.risk_id == r.id %}selected{% endif %}>{{ r.category }}</option>
           {% endfor %}
         </select>
       </label>
 
       <label>Валюта
-        <select name="currency_id" required>
-          {% for c in currencies %}
-          <option value="{{ c.id }}" {% if selected_product.currency_id == c.id %}selected{% endif %}>{{ c.currency_code }}</option>
-          {% endfor %}
-        </select>
+        <div class="inline-with-action">
+          <select name="currency_id" required>
+            {% for c in currencies %}
+            <option value="{{ c.id }}" {% if selected_product and selected_product.currency_id == c.id %}selected{% endif %}>{{ c.currency_code }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="plus-btn" onclick="openDialog('currencyDialog')">+</button>
+        </div>
       </label>
 
       <label>Ставка, %
-        <input name="interest_rate" type="number" min="0" max="30" step="0.01" title="Allowed range: 0..30" value="{{ selected_product.interest_rate }}" required />
-        <span class="field-note" title="Allowed range: 0..30">Range: 0..30</span>
+        <input name="interest_rate" type="number" min="0" max="30" step="0.01" title="Допустимый диапазон: 0..30" value="{{ selected_product.interest_rate if selected_product else '' }}" required />
+        <span class="field-note" title="Допустимый диапазон: 0..30">Диапазон: 0..30</span>
       </label>
 
       <label>Мин. взнос
-        <input name="min_deposit" type="number" min="0" max="1000000" step="0.01" title="Allowed range: 0..1 000 000" value="{{ selected_product.min_deposit }}" required />
-        <span class="field-note" title="Allowed range: 0..1 000 000">Range: 0..1 000 000</span>
+        <input name="min_deposit" type="number" min="0" max="1000000" step="0.01" title="Допустимый диапазон: 0..1 000 000" value="{{ selected_product.min_deposit if selected_product else '' }}" required />
+        <span class="field-note" title="Допустимый диапазон: 0..1 000 000">Диапазон: 0..1 000 000</span>
       </label>
 
       <label>Срок, мес
-        <input name="term_months" type="number" min="0" max="600" title="Allowed range: 0..600" value="{{ selected_product.term_months }}" required />
-        <span class="field-note" title="Allowed range: 0..600">Range: 0..600</span>
+        <input name="term_months" type="number" min="0" max="600" title="Допустимый диапазон: 0..600" value="{{ selected_product.term_months if selected_product else '' }}" required />
+        <span class="field-note" title="Допустимый диапазон: 0..600">Диапазон: 0..600</span>
       </label>
 
       <label>Описание
-        <input name="description" value="{{ selected_product.description if selected_product.description else '' }}" />
+        <input name="description" value="{{ selected_product.description if selected_product and selected_product.description else '' }}" />
       </label>
 
+      {% if selected_product %}
       <label class="checkbox-label">
         <input name="is_active" type="checkbox" {% if selected_product.is_active %}checked{% endif %} />
         Активный продукт
       </label>
+      {% endif %}
 
-      <button type="submit">Сохранить все изменения</button>
+      <div class="form-actions">
+        <button type="submit">{% if selected_product %}Сохранить изменения{% else %}Создать продукт{% endif %}</button>
+        {% if selected_product %}
+          <a class="ghost-btn" href="/manage">Перейти к добавлению</a>
+        {% else %}
+          <button type="button" class="ghost-btn" id="clear-product-draft">Очистить форму</button>
+        {% endif %}
+      </div>
     </form>
 
+    {% if selected_product %}
     <form method="post" action="/manage/products/{{ selected_product.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить запись безвозвратно?');">
       <button type="submit" class="danger-btn">Удалить запись</button>
     </form>
+    {% endif %}
   </div>
-  {% endif %}
 </section>
 
 <dialog id="typeDialog" class="mini-dialog">
@@ -217,9 +198,80 @@
     const dialog = document.getElementById(id);
     if (dialog) dialog.showModal();
   }
+
   function closeDialog(id) {
     const dialog = document.getElementById(id);
     if (dialog) dialog.close();
   }
+
+  (function () {
+    const form = document.getElementById('product-form');
+    if (!form) return;
+
+    const isEditMode = {{ 'true' if selected_product else 'false' }};
+    const storageKey = 'manage_product_draft_v1';
+    const trackedNames = [
+      'product_title',
+      'bank_id',
+      'type_id',
+      'risk_id',
+      'currency_id',
+      'interest_rate',
+      'min_deposit',
+      'term_months',
+      'description'
+    ];
+
+    function saveDraft() {
+      if (isEditMode) return;
+      const payload = {};
+      trackedNames.forEach((name) => {
+        const element = form.elements.namedItem(name);
+        if (element) payload[name] = element.value;
+      });
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    }
+
+    function restoreDraft() {
+      if (isEditMode) {
+        return;
+      }
+
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+
+      try {
+        const payload = JSON.parse(raw);
+        trackedNames.forEach((name) => {
+          if (!(name in payload)) return;
+          const element = form.elements.namedItem(name);
+          if (!element) return;
+          element.value = payload[name];
+        });
+      } catch (error) {
+        localStorage.removeItem(storageKey);
+      }
+    }
+
+    const clearDraftButton = document.getElementById('clear-product-draft');
+    if (clearDraftButton) {
+      clearDraftButton.addEventListener('click', function () {
+        localStorage.removeItem(storageKey);
+        form.reset();
+      });
+    }
+
+    form.addEventListener('input', saveDraft);
+    form.addEventListener('change', saveDraft);
+
+    form.addEventListener('submit', function () {
+      if (!isEditMode) {
+        localStorage.removeItem(storageKey);
+      }
+    });
+
+    restoreDraft();
+  })();
 </script>
 {% endblock %}
+
