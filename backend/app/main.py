@@ -992,17 +992,30 @@ def analytics_page(
 @app.get("/manage")
 def manage_page(
     request: Request,
-    selected_product_id: int | None = None,
+    selected_product_id: str | None = None,
     selected_product_id_manual: str = "",
-    selected_bank_id: int | None = None,
+    selected_bank_id: str | None = None,
     selected_bank_id_manual: str = "",
-    selected_type_id: int | None = None,
+    selected_type_id: str | None = None,
     selected_type_id_manual: str = "",
-    selected_currency_id: int | None = None,
+    selected_currency_id: str | None = None,
     selected_currency_id_manual: str = "",
     message: str | None = None,
     db: Session = Depends(get_db),
-):
+ ):
+    def parse_optional_id(raw_value: str | None) -> int | None:
+        if raw_value is None:
+            return None
+        value = raw_value.strip()
+        if not value:
+            return None
+        return int(value) if value.isdigit() else None
+
+    selected_product_id = parse_optional_id(selected_product_id)
+    selected_bank_id = parse_optional_id(selected_bank_id)
+    selected_type_id = parse_optional_id(selected_type_id)
+    selected_currency_id = parse_optional_id(selected_currency_id)
+
     if selected_product_id_manual.strip().isdigit():
         selected_product_id = int(selected_product_id_manual.strip())
     if selected_bank_id_manual.strip().isdigit():
@@ -1369,6 +1382,10 @@ def manage_update_product_full(
 def manage_delete_product(product_id: int, db: Session = Depends(get_db)):
     delete_product(db, product_id)
     return RedirectResponse(url="/manage?message=product-deleted", status_code=303)
+
+
+
+
 
 
 

@@ -12,7 +12,7 @@
 
   <form class="grid-form" method="get" action="/manage">
     <label>Выбор банка по названию
-      <select name="selected_bank_id">
+      <select name="selected_bank_id" id="selected_bank_id_select">
         <option value="">Новый банк (режим создания)</option>
         {% for b in banks %}
         <option value="{{ b.id }}" {% if selected_bank_id == b.id %}selected{% endif %}>{{ b.bank_name }} [ID={{ b.id }}]</option>
@@ -21,7 +21,7 @@
     </label>
 
     <label>Или ручной ввод ID банка
-      <input name="selected_bank_id_manual" type="number" min="1" placeholder="Введите ID банка" />
+      <input name="selected_bank_id_manual" id="selected_bank_id_manual" type="number" min="1" placeholder="Введите ID банка" />
     </label>
 
     <div class="form-actions">
@@ -370,6 +370,22 @@
       form.addEventListener('submit', rememberScroll);
     });
 
+    const bankSelect = document.getElementById('selected_bank_id_select');
+    const bankManualInput = document.getElementById('selected_bank_id_manual');
+
+    function syncBankManualInputState() {
+      if (!bankSelect || !bankManualInput) return;
+      const isNewBankMode = bankSelect.value === '';
+      bankManualInput.disabled = isNewBankMode;
+      if (isNewBankMode) {
+        bankManualInput.value = '';
+      }
+    }
+
+    if (bankSelect && bankManualInput) {
+      bankSelect.addEventListener('change', syncBankManualInputState);
+      syncBankManualInputState();
+    }
     document.querySelectorAll('a').forEach((link) => {
       link.addEventListener('click', rememberScroll);
     });
@@ -445,3 +461,4 @@
   })();
 </script>
 {% endblock %}
+
