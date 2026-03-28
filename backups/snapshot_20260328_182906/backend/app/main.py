@@ -342,28 +342,6 @@ def bank_cards(db: Session):
     rows = db.execute(stmt).mappings().all()
     return [row_to_dict(r) for r in rows]
 
-def bank_comparison_rows(db: Session):
-    stmt = text(
-        """
-        SELECT
-            b.id,
-            b.bank_name,
-            b.license_no,
-            b.rating,
-            COALESCE(COUNT(p.id), 0)::int AS total_products,
-            COALESCE(ROUND(AVG(p.interest_rate)::numeric, 2), 0) AS avg_rate,
-            COALESCE(ROUND(AVG(p.min_deposit)::numeric, 2), 0) AS avg_deposit,
-            COALESCE(ROUND(AVG(p.term_months)::numeric, 2), 0) AS avg_term
-        FROM banks b
-        LEFT JOIN products p
-            ON p.bank_id = b.id
-           AND p.is_active = TRUE
-        GROUP BY b.id, b.bank_name, b.license_no, b.rating
-        ORDER BY b.bank_name
-        """
-    )
-    rows = db.execute(stmt).mappings().all()
-    return [row_to_dict(r) for r in rows]
 
 def bank_analytics(db: Session, bank_id: int):
     bank_row = db.execute(
@@ -516,7 +494,7 @@ def create_bank(db: Session, payload: BankCreate):
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Банк уже существует или значения некорректны") from exc
+        raise HTTPException(status_code=400, detail="Bank already exists or invalid values") from exc
     db.refresh(bank)
     return {
         "id": bank.id,
@@ -525,58 +503,17 @@ def create_bank(db: Session, payload: BankCreate):
         "rating": bank.rating,
     }
 
-
-def update_bank(db: Session, bank_id: int, payload: BankCreate):
-    bank = db.get(Bank, bank_id)
-    if not bank:
-        raise HTTPException(status_code=404, detail="Банк не найден")
-
-    bank.bank_name = payload.bank_name.strip()
-    bank.license_no = payload.license_no.strip()
-    bank.rating = payload.rating.strip().upper()
-
-    db.add(bank)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Банк уже существует или значения некорректны") from exc
-
-    db.refresh(bank)
-    return {
-        "id": bank.id,
-        "bank_name": bank.bank_name,
-        "license_no": bank.license_no,
-        "rating": bank.rating,
-    }
-
-
-def delete_bank(db: Session, bank_id: int):
-    bank = db.get(Bank, bank_id)
-    if not bank:
-        raise HTTPException(status_code=404, detail="Банк не найден")
-
-    linked_products = (
-        db.execute(select(func.count()).select_from(Product).where(Product.bank_id == bank_id))
-        .scalar_one()
-    )
-    if int(linked_products or 0) > 0:
-        raise HTTPException(status_code=400, detail="Нельзя удалить банк: есть связанные продукты")
-
-    db.delete(bank)
-    db.commit()
-    return {"status": "deleted", "id": bank_id}
 
 def create_product_type(db: Session, type_name: str):
     clean_name = type_name.strip()
     if not clean_name:
-        raise HTTPException(status_code=400, detail="Название типа продукта обязательно")
+        raise HTTPException(status_code=400, detail="Type name is required")
 
     exists = db.execute(
         select(ProductType.id).where(func.lower(ProductType.type_name) == clean_name.lower())
     ).scalar_one_or_none()
     if exists:
-        raise HTTPException(status_code=400, detail="Тип продукта уже существует")
+        raise HTTPException(status_code=400, detail="Type already exists")
 
     next_id = db.execute(select(func.coalesce(func.max(ProductType.id), 0) + 1)).scalar_one()
     product_type = ProductType(id=int(next_id), type_name=clean_name)
@@ -585,104 +522,22 @@ def create_product_type(db: Session, type_name: str):
     return {"id": product_type.id, "type_name": product_type.type_name}
 
 
-def update_product_type(db: Session, type_id: int, type_name: str):
-    clean_name = type_name.strip()
-    if not clean_name:
-        raise HTTPException(status_code=400, detail="Название типа продукта обязательно")
-
-    product_type = db.get(ProductType, type_id)
-    if not product_type:
-        raise HTTPException(status_code=404, detail="Тип продукта не найден")
-
-    duplicate = db.execute(
-        select(ProductType.id)
-        .where(func.lower(ProductType.type_name) == clean_name.lower())
-        .where(ProductType.id != type_id)
-    ).scalar_one_or_none()
-    if duplicate:
-        raise HTTPException(status_code=400, detail="Тип продукта с таким названием уже есть")
-
-    product_type.type_name = clean_name
-    db.add(product_type)
-    db.commit()
-    db.refresh(product_type)
-    return {"id": product_type.id, "type_name": product_type.type_name}
-
-
-def delete_product_type(db: Session, type_id: int):
-    product_type = db.get(ProductType, type_id)
-    if not product_type:
-        raise HTTPException(status_code=404, detail="Тип продукта не найден")
-
-    linked_products = (
-        db.execute(select(func.count()).select_from(Product).where(Product.type_id == type_id))
-        .scalar_one()
-    )
-    if int(linked_products or 0) > 0:
-        raise HTTPException(status_code=400, detail="Нельзя удалить тип: есть связанные продукты")
-
-    db.delete(product_type)
-    db.commit()
-    return {"status": "deleted", "id": type_id}
-
-
 def create_currency(db: Session, currency_code: str):
     clean_code = currency_code.strip().upper()
     if not clean_code:
-        raise HTTPException(status_code=400, detail="Код валюты обязателен")
+        raise HTTPException(status_code=400, detail="Currency code is required")
 
     exists = db.execute(
         select(Currency.id).where(func.upper(Currency.currency_code) == clean_code)
     ).scalar_one_or_none()
     if exists:
-        raise HTTPException(status_code=400, detail="Валюта уже существует")
+        raise HTTPException(status_code=400, detail="Currency already exists")
 
     next_id = db.execute(select(func.coalesce(func.max(Currency.id), 0) + 1)).scalar_one()
     currency = Currency(id=int(next_id), currency_code=clean_code)
     db.add(currency)
     db.commit()
     return {"id": currency.id, "currency_code": currency.currency_code}
-
-
-def update_currency(db: Session, currency_id: int, currency_code: str):
-    clean_code = currency_code.strip().upper()
-    if not clean_code:
-        raise HTTPException(status_code=400, detail="Код валюты обязателен")
-
-    currency = db.get(Currency, currency_id)
-    if not currency:
-        raise HTTPException(status_code=404, detail="Валюта не найдена")
-
-    duplicate = db.execute(
-        select(Currency.id)
-        .where(func.upper(Currency.currency_code) == clean_code)
-        .where(Currency.id != currency_id)
-    ).scalar_one_or_none()
-    if duplicate:
-        raise HTTPException(status_code=400, detail="Валюта с таким кодом уже есть")
-
-    currency.currency_code = clean_code
-    db.add(currency)
-    db.commit()
-    db.refresh(currency)
-    return {"id": currency.id, "currency_code": currency.currency_code}
-
-
-def delete_currency(db: Session, currency_id: int):
-    currency = db.get(Currency, currency_id)
-    if not currency:
-        raise HTTPException(status_code=404, detail="Валюта не найдена")
-
-    linked_products = (
-        db.execute(select(func.count()).select_from(Product).where(Product.currency_id == currency_id))
-        .scalar_one()
-    )
-    if int(linked_products or 0) > 0:
-        raise HTTPException(status_code=400, detail="Нельзя удалить валюту: есть связанные продукты")
-
-    db.delete(currency)
-    db.commit()
-    return {"status": "deleted", "id": currency_id}
 
 
 def create_product(db: Session, payload: ProductCreate):
@@ -891,14 +746,8 @@ def products_page(
     type_name: str | None = None,
     bank_name: str | None = None,
     currency_code: str | None = None,
-    reset: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
-    if reset:
-        type_name = None
-        bank_name = None
-        currency_code = None
-
     rows = list_products(db, type_name, bank_name, currency_code)
     options = build_search_options(db)
     matrix = product_filter_matrix(db)
@@ -922,12 +771,8 @@ def products_page(
 def banks_page(
     request: Request,
     rating: str | None = None,
-    reset: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
-    if reset:
-        rating = None
-
     rows = list_banks(db, None, rating)
     options = build_search_options(db)
     return templates.TemplateResponse(
@@ -953,12 +798,6 @@ def analytics_page(
 
     selected = bank_analytics(db, selected_bank_id) if selected_bank_id else None
     market = market_reference(db)
-    comparison_rows = bank_comparison_rows(db)
-    for row in comparison_rows:
-        row["rate_phrase"] = format_vs_market(float(row["avg_rate"]), float(market["avg_rate"]), "rate")
-        row["deposit_phrase"] = format_vs_market(float(row["avg_deposit"]), float(market["avg_deposit"]), "deposit")
-        row["term_phrase"] = format_vs_market(float(row["avg_term"]), float(market["avg_term"]), "term")
-
     type_analytics = overall_type_analytics(db)
     top_products = top_rate_products(db, 5)
     currency_stats = currency_distribution(db)
@@ -981,7 +820,6 @@ def analytics_page(
             "selected": selected,
             "selected_bank_id": selected_bank_id,
             "market": market,
-            "comparison_rows": comparison_rows,
             "type_analytics": type_analytics,
             "top_products": top_products,
             "currency_stats": currency_stats,
@@ -994,23 +832,11 @@ def manage_page(
     request: Request,
     selected_product_id: int | None = None,
     selected_product_id_manual: str = "",
-    selected_bank_id: int | None = None,
-    selected_bank_id_manual: str = "",
-    selected_type_id: int | None = None,
-    selected_type_id_manual: str = "",
-    selected_currency_id: int | None = None,
-    selected_currency_id_manual: str = "",
     message: str | None = None,
     db: Session = Depends(get_db),
 ):
     if selected_product_id_manual.strip().isdigit():
         selected_product_id = int(selected_product_id_manual.strip())
-    if selected_bank_id_manual.strip().isdigit():
-        selected_bank_id = int(selected_bank_id_manual.strip())
-    if selected_type_id_manual.strip().isdigit():
-        selected_type_id = int(selected_type_id_manual.strip())
-    if selected_currency_id_manual.strip().isdigit():
-        selected_currency_id = int(selected_currency_id_manual.strip())
 
     banks = db.execute(select(Bank).order_by(Bank.bank_name)).scalars().all()
     types = db.execute(select(ProductType).order_by(ProductType.type_name)).scalars().all()
@@ -1067,75 +893,13 @@ def manage_page(
         )
         selected_product = row_to_dict(selected_product) if selected_product else None
 
-    selected_bank = None
-    if selected_bank_id:
-        selected_bank = (
-            db.execute(
-                select(
-                    Bank.id,
-                    Bank.bank_name,
-                    Bank.license_no,
-                    Bank.rating,
-                    func.count(Product.id).label("products_count"),
-                )
-                .outerjoin(Product, Product.bank_id == Bank.id)
-                .where(Bank.id == selected_bank_id)
-                .group_by(Bank.id, Bank.bank_name, Bank.license_no, Bank.rating)
-            )
-            .mappings()
-            .first()
-        )
-        selected_bank = row_to_dict(selected_bank) if selected_bank else None
-
-    selected_type = None
-    if selected_type_id:
-        selected_type = (
-            db.execute(
-                select(
-                    ProductType.id,
-                    ProductType.type_name,
-                    func.count(Product.id).label("products_count"),
-                )
-                .outerjoin(Product, Product.type_id == ProductType.id)
-                .where(ProductType.id == selected_type_id)
-                .group_by(ProductType.id, ProductType.type_name)
-            )
-            .mappings()
-            .first()
-        )
-        selected_type = row_to_dict(selected_type) if selected_type else None
-
-    selected_currency = None
-    if selected_currency_id:
-        selected_currency = (
-            db.execute(
-                select(
-                    Currency.id,
-                    Currency.currency_code,
-                    func.count(Product.id).label("products_count"),
-                )
-                .outerjoin(Product, Product.currency_id == Currency.id)
-                .where(Currency.id == selected_currency_id)
-                .group_by(Currency.id, Currency.currency_code)
-            )
-            .mappings()
-            .first()
-        )
-        selected_currency = row_to_dict(selected_currency) if selected_currency else None
-
     message_map = {
         "bank-created": "Банк добавлен",
-        "bank-updated": "Банк обновлен",
-        "bank-deleted": "Банк удален",
-        "type-created": "Тип продукта добавлен",
-        "type-updated": "Тип продукта обновлен",
-        "type-deleted": "Тип продукта удален",
-        "currency-created": "Валюта добавлена",
-        "currency-updated": "Валюта обновлена",
-        "currency-deleted": "Валюта удалена",
         "product-created": "Продукт добавлен",
         "product-full-updated": "Запись полностью обновлена",
         "product-deleted": "Запись удалена",
+        "type-created": "Новый тип продукта добавлен",
+        "currency-created": "Новая валюта добавлена",
     }
 
     return templates.TemplateResponse(
@@ -1144,13 +908,7 @@ def manage_page(
             "request": request,
             "message": message_map.get(message, message),
             "selected_product_id": selected_product_id,
-            "selected_bank_id": selected_bank_id,
-            "selected_type_id": selected_type_id,
-            "selected_currency_id": selected_currency_id,
             "selected_product": selected_product,
-            "selected_bank": selected_bank,
-            "selected_type": selected_type,
-            "selected_currency": selected_currency,
             "product_options": product_options,
             "banks": banks,
             "types": types,
@@ -1168,41 +926,8 @@ def manage_create_bank(
     rating: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    try:
-        create_bank(db, BankCreate(bank_name=bank_name, license_no=license_no, rating=rating))
-    except HTTPException as exc:
-        return RedirectResponse(url=f"/manage?message={quote_plus(str(exc.detail))}", status_code=303)
+    create_bank(db, BankCreate(bank_name=bank_name, license_no=license_no, rating=rating))
     return RedirectResponse(url="/manage?message=bank-created", status_code=303)
-
-
-@app.post("/manage/banks/{bank_id}/update")
-def manage_update_bank(
-    bank_id: int,
-    bank_name: str = Form(...),
-    license_no: str = Form(...),
-    rating: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    try:
-        update_bank(db, bank_id, BankCreate(bank_name=bank_name, license_no=license_no, rating=rating))
-    except HTTPException as exc:
-        return RedirectResponse(
-            url=f"/manage?selected_bank_id={bank_id}&message={quote_plus(str(exc.detail))}",
-            status_code=303,
-        )
-    return RedirectResponse(url=f"/manage?selected_bank_id={bank_id}&message=bank-updated", status_code=303)
-
-
-@app.post("/manage/banks/{bank_id}/delete")
-def manage_delete_bank(bank_id: int, db: Session = Depends(get_db)):
-    try:
-        delete_bank(db, bank_id)
-    except HTTPException as exc:
-        return RedirectResponse(
-            url=f"/manage?selected_bank_id={bank_id}&message={quote_plus(str(exc.detail))}",
-            status_code=303,
-        )
-    return RedirectResponse(url="/manage?message=bank-deleted", status_code=303)
 
 
 @app.post("/manage/product-types")
@@ -1214,34 +939,6 @@ def manage_create_product_type(type_name: str = Form(...), db: Session = Depends
     return RedirectResponse(url="/manage?message=type-created", status_code=303)
 
 
-@app.post("/manage/product-types/{type_id}/update")
-def manage_update_product_type(
-    type_id: int,
-    type_name: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    try:
-        update_product_type(db, type_id, type_name)
-    except HTTPException as exc:
-        return RedirectResponse(
-            url=f"/manage?selected_type_id={type_id}&message={quote_plus(str(exc.detail))}",
-            status_code=303,
-        )
-    return RedirectResponse(url=f"/manage?selected_type_id={type_id}&message=type-updated", status_code=303)
-
-
-@app.post("/manage/product-types/{type_id}/delete")
-def manage_delete_product_type(type_id: int, db: Session = Depends(get_db)):
-    try:
-        delete_product_type(db, type_id)
-    except HTTPException as exc:
-        return RedirectResponse(
-            url=f"/manage?selected_type_id={type_id}&message={quote_plus(str(exc.detail))}",
-            status_code=303,
-        )
-    return RedirectResponse(url="/manage?message=type-deleted", status_code=303)
-
-
 @app.post("/manage/currencies")
 def manage_create_currency(currency_code: str = Form(...), db: Session = Depends(get_db)):
     try:
@@ -1249,37 +946,6 @@ def manage_create_currency(currency_code: str = Form(...), db: Session = Depends
     except HTTPException as exc:
         return RedirectResponse(url=f"/manage?message={quote_plus(str(exc.detail))}", status_code=303)
     return RedirectResponse(url="/manage?message=currency-created", status_code=303)
-
-
-@app.post("/manage/currencies/{currency_id}/update")
-def manage_update_currency(
-    currency_id: int,
-    currency_code: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    try:
-        update_currency(db, currency_id, currency_code)
-    except HTTPException as exc:
-        return RedirectResponse(
-            url=f"/manage?selected_currency_id={currency_id}&message={quote_plus(str(exc.detail))}",
-            status_code=303,
-        )
-    return RedirectResponse(
-        url=f"/manage?selected_currency_id={currency_id}&message=currency-updated",
-        status_code=303,
-    )
-
-
-@app.post("/manage/currencies/{currency_id}/delete")
-def manage_delete_currency(currency_id: int, db: Session = Depends(get_db)):
-    try:
-        delete_currency(db, currency_id)
-    except HTTPException as exc:
-        return RedirectResponse(
-            url=f"/manage?selected_currency_id={currency_id}&message={quote_plus(str(exc.detail))}",
-            status_code=303,
-        )
-    return RedirectResponse(url="/manage?message=currency-deleted", status_code=303)
 
 
 @app.post("/manage/products")
@@ -1369,11 +1035,4 @@ def manage_update_product_full(
 def manage_delete_product(product_id: int, db: Session = Depends(get_db)):
     delete_product(db, product_id)
     return RedirectResponse(url="/manage?message=product-deleted", status_code=303)
-
-
-
-
-
-
-
 

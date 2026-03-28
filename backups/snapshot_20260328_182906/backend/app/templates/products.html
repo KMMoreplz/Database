@@ -1,9 +1,9 @@
 ﻿{% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Поиск продуктов (1/2/3 синхронизированных атрибута)</h2>
+  <h2>Справка по банковским продуктам</h2>
   <form class="grid-form" method="get" id="product-filter-form">
-    <label>Тип продукта
+    <label>Продукт
       <select id="type_name" name="type_name">
         <option value="">Все</option>
         {% for item in type_names %}
@@ -31,8 +31,8 @@
     </label>
 
     <div class="form-actions">
-      <button type="submit">Найти</button>
-      <a class="ghost-btn" href="/products?reset=1">Сбросить фильтры</a>
+      <button type="submit">Искать</button>
+      <a class="ghost-btn" href="/products">Очистить</a>
     </div>
   </form>
 </section>
@@ -45,7 +45,7 @@
         <tr>
           <th>ID</th>
           <th>Название</th>
-          <th>Тип продукта</th>
+          <th>Продукт</th>
           <th>Банк</th>
           <th>Валюта</th>
           <th>Ставка, %</th>
@@ -73,16 +73,25 @@
 
 <script>
   const matrix = {{ matrix | tojson }};
-  const allTypeNames = {{ type_names | tojson }};
-  const allBankNames = {{ bank_names | tojson }};
-  const allCurrencyCodes = {{ currency_codes | tojson }};
-
   const typeSelect = document.getElementById('type_name');
   const bankSelect = document.getElementById('bank_name');
   const currencySelect = document.getElementById('currency_code');
 
   function unique(values) {
-    return [...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b));
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+  }
+
+  function filterRows() {
+    const t = typeSelect.value;
+    const b = bankSelect.value;
+    const c = currencySelect.value;
+
+    return matrix.filter((row) => {
+      const typeOk = !t || row.type_name === t;
+      const bankOk = !b || row.bank_name === b;
+      const currencyOk = !c || row.currency_code === c;
+      return typeOk && bankOk && currencyOk;
+    });
   }
 
   function refillSelect(selectEl, values, currentValue) {
@@ -108,49 +117,16 @@
     }
   }
 
-  function rowsByConstraint(constraints) {
-    return matrix.filter((row) => {
-      const typeOk = !constraints.type_name || row.type_name === constraints.type_name;
-      const bankOk = !constraints.bank_name || row.bank_name === constraints.bank_name;
-      const currencyOk = !constraints.currency_code || row.currency_code === constraints.currency_code;
-      return typeOk && bankOk && currencyOk;
-    });
-  }
-
   function syncSelects() {
-    const selected = {
-      type_name: typeSelect.value,
-      bank_name: bankSelect.value,
-      currency_code: currencySelect.value,
-    };
+    const rows = filterRows();
 
-    const hasAnyFilter = Boolean(selected.type_name || selected.bank_name || selected.currency_code);
+    const typeCurrent = typeSelect.value;
+    const bankCurrent = bankSelect.value;
+    const currencyCurrent = currencySelect.value;
 
-    if (!hasAnyFilter) {
-      refillSelect(typeSelect, allTypeNames, '');
-      refillSelect(bankSelect, allBankNames, '');
-      refillSelect(currencySelect, allCurrencyCodes, '');
-      return;
-    }
-
-    const typeCandidates = rowsByConstraint({
-      bank_name: selected.bank_name,
-      currency_code: selected.currency_code,
-    }).map((row) => row.type_name);
-
-    const bankCandidates = rowsByConstraint({
-      type_name: selected.type_name,
-      currency_code: selected.currency_code,
-    }).map((row) => row.bank_name);
-
-    const currencyCandidates = rowsByConstraint({
-      type_name: selected.type_name,
-      bank_name: selected.bank_name,
-    }).map((row) => row.currency_code);
-
-    refillSelect(typeSelect, selected.bank_name || selected.currency_code ? typeCandidates : allTypeNames, selected.type_name);
-    refillSelect(bankSelect, selected.type_name || selected.currency_code ? bankCandidates : allBankNames, selected.bank_name);
-    refillSelect(currencySelect, selected.type_name || selected.bank_name ? currencyCandidates : allCurrencyCodes, selected.currency_code);
+    refillSelect(typeSelect, rows.map((r) => r.type_name), typeCurrent);
+    refillSelect(bankSelect, rows.map((r) => r.bank_name), bankCurrent);
+    refillSelect(currencySelect, rows.map((r) => r.currency_code), currencyCurrent);
   }
 
   typeSelect.addEventListener('change', syncSelects);

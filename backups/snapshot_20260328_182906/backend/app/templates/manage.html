@@ -1,192 +1,44 @@
 ﻿{% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Ввод, редактирование и удаление данных</h2>
+  <h2>Управление данными</h2>
   {% if message %}
     <p class="ok">{{ message }}</p>
   {% endif %}
 </section>
 
 <section class="card">
-  <h3>Банки: создание / редактирование / удаление</h3>
+  <h3>Добавить банк</h3>
+  <form class="grid-form" method="post" action="/manage/banks">
+    <label>Название банка
+      <input name="bank_name" required />
+    </label>
 
-  <form class="grid-form" method="get" action="/manage">
-    <label>Выбор банка по названию
-      <select name="selected_bank_id">
-        <option value="">Новый банк (режим создания)</option>
-        {% for b in banks %}
-        <option value="{{ b.id }}" {% if selected_bank_id == b.id %}selected{% endif %}>{{ b.bank_name }} [ID={{ b.id }}]</option>
+    <label>Лицензия
+      <input
+        name="license_no"
+        required
+        pattern="№[0-9]{4,10}"
+        placeholder="№123456"
+        title="Формат: № и от 4 до 10 цифр"
+      />
+      <span class="field-note">Пример: №123456</span>
+    </label>
+
+    <label>Рейтинг
+      <select name="rating" required>
+        {% for item in rating_choices %}
+        <option value="{{ item }}">{{ item }}</option>
         {% endfor %}
       </select>
     </label>
 
-    <label>Или ручной ввод ID банка
-      <input name="selected_bank_id_manual" type="number" min="1" placeholder="Введите ID банка" />
-    </label>
-
-    <div class="form-actions">
-      <button type="submit">Открыть банк</button>
-      <a class="ghost-btn" href="/manage">Новый банк</a>
-    </div>
+    <button type="submit">Создать банк</button>
   </form>
-
-  {% if selected_bank_id and not selected_bank %}
-    <p class="warn">Банк с выбранным ID не найден.</p>
-  {% endif %}
-
-  <div class="card inner-card">
-    <h4>
-      {% if selected_bank %}
-      Редактирование банка: {{ selected_bank.bank_name }} (ID={{ selected_bank.id }})
-      {% else %}
-      Создание нового банка
-      {% endif %}
-    </h4>
-
-    <form class="grid-form" method="post" action="{% if selected_bank %}/manage/banks/{{ selected_bank.id }}/update{% else %}/manage/banks{% endif %}">
-      <label>Название банка
-        <input name="bank_name" value="{{ selected_bank.bank_name if selected_bank else '' }}" required />
-      </label>
-
-      <label>Лицензия
-        <input
-          name="license_no"
-          required
-          pattern="№[0-9]{4,10}"
-          placeholder="№123456"
-          title="Формат: № и от 4 до 10 цифр"
-          value="{{ selected_bank.license_no if selected_bank else '' }}"
-        />
-        <span class="field-note">Пример: №123456</span>
-      </label>
-
-      <label>Рейтинг
-        <select name="rating" required>
-          {% for item in rating_choices %}
-          <option value="{{ item }}" {% if selected_bank and selected_bank.rating == item %}selected{% endif %}>{{ item }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <button type="submit">{% if selected_bank %}Сохранить банк{% else %}Создать банк{% endif %}</button>
-    </form>
-
-    {% if selected_bank %}
-    <form method="post" action="/manage/banks/{{ selected_bank.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить банк? Разрешено только если нет связанных продуктов.');">
-      <button type="submit" class="danger-btn">Удалить банк</button>
-    </form>
-    <p class="hint">Связанных продуктов: {{ selected_bank.products_count }}. Удаление возможно только при 0.</p>
-    {% endif %}
-  </div>
 </section>
 
 <section class="card">
-  <h3>Типы продуктов: создание / редактирование / удаление</h3>
-
-  <form class="grid-form" method="get" action="/manage">
-    <label>Выбор типа
-      <select name="selected_type_id">
-        <option value="">Новый тип (режим создания)</option>
-        {% for t in types %}
-        <option value="{{ t.id }}" {% if selected_type_id == t.id %}selected{% endif %}>{{ t.type_name }} [ID={{ t.id }}]</option>
-        {% endfor %}
-      </select>
-    </label>
-
-    <label>Или ручной ввод ID типа
-      <input name="selected_type_id_manual" type="number" min="1" placeholder="Введите ID типа" />
-    </label>
-
-    <div class="form-actions">
-      <button type="submit">Открыть тип</button>
-      <a class="ghost-btn" href="/manage">Новый тип</a>
-    </div>
-  </form>
-
-  {% if selected_type_id and not selected_type %}
-    <p class="warn">Тип с выбранным ID не найден.</p>
-  {% endif %}
-
-  <div class="card inner-card">
-    <h4>
-      {% if selected_type %}
-      Редактирование типа: {{ selected_type.type_name }} (ID={{ selected_type.id }})
-      {% else %}
-      Создание нового типа
-      {% endif %}
-    </h4>
-
-    <form class="grid-form" method="post" action="{% if selected_type %}/manage/product-types/{{ selected_type.id }}/update{% else %}/manage/product-types{% endif %}">
-      <label>Название типа
-        <input name="type_name" value="{{ selected_type.type_name if selected_type else '' }}" required />
-      </label>
-      <button type="submit">{% if selected_type %}Сохранить тип{% else %}Добавить тип{% endif %}</button>
-    </form>
-
-    {% if selected_type %}
-    <form method="post" action="/manage/product-types/{{ selected_type.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить тип продукта?');">
-      <button type="submit" class="danger-btn">Удалить тип</button>
-    </form>
-    <p class="hint">Связанных продуктов: {{ selected_type.products_count }}. Удаление возможно только при 0.</p>
-    {% endif %}
-  </div>
-</section>
-
-<section class="card">
-  <h3>Валюты: создание / редактирование / удаление</h3>
-
-  <form class="grid-form" method="get" action="/manage">
-    <label>Выбор валюты
-      <select name="selected_currency_id">
-        <option value="">Новая валюта (режим создания)</option>
-        {% for cur in currencies %}
-        <option value="{{ cur.id }}" {% if selected_currency_id == cur.id %}selected{% endif %}>{{ cur.currency_code }} [ID={{ cur.id }}]</option>
-        {% endfor %}
-      </select>
-    </label>
-
-    <label>Или ручной ввод ID валюты
-      <input name="selected_currency_id_manual" type="number" min="1" placeholder="Введите ID валюты" />
-    </label>
-
-    <div class="form-actions">
-      <button type="submit">Открыть валюту</button>
-      <a class="ghost-btn" href="/manage">Новая валюта</a>
-    </div>
-  </form>
-
-  {% if selected_currency_id and not selected_currency %}
-    <p class="warn">Валюта с выбранным ID не найдена.</p>
-  {% endif %}
-
-  <div class="card inner-card">
-    <h4>
-      {% if selected_currency %}
-      Редактирование валюты: {{ selected_currency.currency_code }} (ID={{ selected_currency.id }})
-      {% else %}
-      Создание новой валюты
-      {% endif %}
-    </h4>
-
-    <form class="grid-form" method="post" action="{% if selected_currency %}/manage/currencies/{{ selected_currency.id }}/update{% else %}/manage/currencies{% endif %}">
-      <label>Код валюты
-        <input name="currency_code" maxlength="3" value="{{ selected_currency.currency_code if selected_currency else '' }}" required />
-      </label>
-      <button type="submit">{% if selected_currency %}Сохранить валюту{% else %}Добавить валюту{% endif %}</button>
-    </form>
-
-    {% if selected_currency %}
-    <form method="post" action="/manage/currencies/{{ selected_currency.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить валюту?');">
-      <button type="submit" class="danger-btn">Удалить валюту</button>
-    </form>
-    <p class="hint">Связанных продуктов: {{ selected_currency.products_count }}. Удаление возможно только при 0.</p>
-    {% endif %}
-  </div>
-</section>
-
-<section class="card">
-  <h3>Ввод данных: Продукт (создание / редактирование / удаление)</h3>
-  <p class="hint">Черновик формы сохраняется автоматически при переходах между разделами.</p>
+  <h3>Продукты: добавление и редактирование</h3>
 
   <form class="grid-form" method="get" action="/manage">
     <label>Выбор по названию
@@ -353,29 +205,6 @@
   }
 
   (function () {
-    const key = 'manage_scroll_y';
-    const saved = sessionStorage.getItem(key);
-    if (saved) {
-      window.requestAnimationFrame(() => {
-        window.scrollTo(0, Number(saved) || 0);
-      });
-      sessionStorage.removeItem(key);
-    }
-
-    function rememberScroll() {
-      sessionStorage.setItem(key, String(window.scrollY || window.pageYOffset || 0));
-    }
-
-    document.querySelectorAll('form').forEach((form) => {
-      form.addEventListener('submit', rememberScroll);
-    });
-
-    document.querySelectorAll('a').forEach((link) => {
-      link.addEventListener('click', rememberScroll);
-    });
-  })();
-
-  (function () {
     const form = document.getElementById('product-form');
     if (!form) return;
 
@@ -445,3 +274,4 @@
   })();
 </script>
 {% endblock %}
+

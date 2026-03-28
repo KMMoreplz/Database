@@ -1,0 +1,34 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card-grid">
+  <article class="card">
+    <h2>Банков</h2>
+    <p class="big">{{ total_banks }}</p>
+  </article>
+  <article class="card">
+    <h2>Продуктов</h2>
+    <p class="big">{{ total_products }}</p>
+  </article>
+  <article class="card">
+    <h2>Типов продуктов</h2>
+    <p class="big">{{ total_types }}</p>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Информация о БД</h2>
+  <p><b>База данных:</b> {{ db_name }}</p>
+  <p><b>Автор:</b> {{ db_author }}</p>
+  <p><b>Описание:</b> {{ db_desc }}</p>
+</section>
+
+<section class="card">
+  <h2>Что реализовано</h2>
+  <ul>
+    <li>PostgreSQL + FastAPI + Docker Compose</li>
+    <li>Web-формы: поиск, аналитика, ввод, редактирование, удаление</li>
+    <li>REST API заготовка под дальнейшую разработку</li>
+    <li>Готовые seed-данные для демонстрации</li>
+  </ul>
+</section>
+{% endblock %}

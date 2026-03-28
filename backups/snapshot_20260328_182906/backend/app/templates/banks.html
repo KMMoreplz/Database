@@ -1,7 +1,7 @@
 ﻿{% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Поиск банков по 1 атрибуту</h2>
+  <h2>Справка по банкам</h2>
   <form class="grid-form" method="get">
     <label>Кредитный рейтинг
       <select name="rating">
@@ -12,8 +12,8 @@
       </select>
     </label>
     <div class="form-actions">
-      <button type="submit">Найти</button>
-      <a class="ghost-btn" href="/banks?reset=1">Сбросить фильтры</a>
+      <button type="submit">Искать</button>
+      <a class="ghost-btn" href="/banks">Очистить</a>
     </div>
   </form>
 </section>

@@ -1,51 +1,26 @@
 ﻿{% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Агрегация и аналитика</h2>
+  <h2>Аналитика по банкам</h2>
   <p>Рынок: средняя ставка <b>{{ market.avg_rate }}</b>%, средний порог входа <b>{{ market.avg_deposit }}</b>, средний срок <b>{{ market.avg_term }}</b> мес.</p>
 </section>
 
 <section class="card">
-  <h3>Сравнение банков (одна строка на банк)</h3>
-  <div class="table-wrap tall">
-    <table>
-      <thead>
-        <tr>
-          <th>Банк</th>
-          <th>Рейтинг</th>
-          <th>Лицензия</th>
-          <th>Продуктов</th>
-          <th>Ср. ставка, %</th>
-          <th>Ставка vs рынок</th>
-          <th>Ср. мин. взнос</th>
-          <th>Взнос vs рынок</th>
-          <th>Ср. срок, мес</th>
-          <th>Срок vs рынок</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for row in comparison_rows %}
-        <tr class="{% if selected_bank_id == row.id %}selected-row{% endif %}">
-          <td><a href="/analytics?selected_bank_id={{ row.id }}">{{ row.bank_name }}</a></td>
-          <td>{{ row.rating }}</td>
-          <td>{{ row.license_no }}</td>
-          <td>{{ row.total_products }}</td>
-          <td>{{ row.avg_rate }}</td>
-          <td>{{ row.rate_phrase }}</td>
-          <td>{{ row.avg_deposit }}</td>
-          <td>{{ row.deposit_phrase }}</td>
-          <td>{{ row.avg_term }}</td>
-          <td>{{ row.term_phrase }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <h3>Банки</h3>
+  <div class="bank-grid">
+    {% for card in cards %}
+    <a class="bank-chip {% if selected_bank_id == card.id %}active{% endif %}" href="/analytics?selected_bank_id={{ card.id }}">
+      <span class="chip-title">{{ card.bank_name }}</span>
+      <span class="chip-meta">Продуктов: {{ card.product_count }}</span>
+      <span class="chip-meta">Ср. ставка: {{ card.avg_rate }}%</span>
+    </a>
+    {% endfor %}
   </div>
 </section>
 
 {% if selected %}
 <section class="card">
-  <h3>Детализация: {{ selected.bank.bank_name }}</h3>
+  <h3>{{ selected.bank.bank_name }}</h3>
   <p>Лицензия: {{ selected.bank.license_no }} | Рейтинг: {{ selected.bank.rating }}</p>
 
   <div class="card-grid analytics-grid">
@@ -68,6 +43,28 @@
       <p class="big small">{{ selected.summary.avg_term }} мес</p>
       <p class="hint">{{ selected.phrases.term }}</p>
     </article>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Количество продуктов по типам</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Тип продукта</th>
+          <th>Количество</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in selected.by_type %}
+        <tr>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
 </section>
 
@@ -96,28 +93,6 @@
           <td>{{ row.interest_rate }}</td>
           <td>{{ row.min_deposit }}</td>
           <td>{{ row.term_months }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card">
-  <h3>Количество продуктов по типам (выбранный банк)</h3>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Тип продукта</th>
-          <th>Количество</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for row in selected.by_type %}
-        <tr>
-          <td>{{ row.type_name }}</td>
-          <td>{{ row.count }}</td>
         </tr>
       {% endfor %}
       </tbody>
