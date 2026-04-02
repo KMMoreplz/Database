@@ -1,7 +1,7 @@
 ﻿{% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Поиск банков по 1 атрибуту</h2>
+  <h2>Поиск банков по кредитному рейтингу</h2>
   <form class="grid-form" method="get">
     <label>Кредитный рейтинг
       <select name="rating">
@@ -32,6 +32,14 @@
       </thead>
       <tbody>
       {% for row in rows %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>ID</th>
+          <th>Название банка</th>
+          <th>Лицензия</th>
+          <th>Рейтинг</th>
+        </tr>
+        {% endif %}
         <tr>
           <td>{{ row.id }}</td>
           <td>{{ row.bank_name }}</td>
@@ -44,3 +52,5 @@
   </div>
 </section>
 {% endblock %}
+
+

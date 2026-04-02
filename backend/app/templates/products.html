@@ -1,7 +1,7 @@
 ﻿{% extends "base.html" %}
 {% block content %}
 <section class="card">
-  <h2>Поиск продуктов (1/2/3 синхронизированных атрибута)</h2>
+  <h2>Поиск продуктов (по 1, 2, 3 синхронизированным атрибутам)</h2>
   <form class="grid-form" method="get" id="product-filter-form">
     <label>Тип продукта
       <select id="type_name" name="type_name">
@@ -44,7 +44,7 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Название</th>
+          <th>Название продукта</th>
           <th>Тип продукта</th>
           <th>Банк</th>
           <th>Валюта</th>
@@ -55,6 +55,18 @@
       </thead>
       <tbody>
       {% for row in rows %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>ID</th>
+          <th>Название продукта</th>
+          <th>Тип продукта</th>
+          <th>Банк</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+        {% endif %}
         <tr>
           <td>{{ row.id }}</td>
           <td>{{ row.product_name }}</td>
@@ -160,3 +172,4 @@
   syncSelects();
 </script>
 {% endblock %}
+

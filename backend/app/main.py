@@ -59,29 +59,88 @@ DEFAULT_RATING_CHOICES = [
     "BB-",
     "B+",
     "B",
-    "B-",
-    "CCC",
-    "CC",
-    "C",
-    "D",
 ]
+
+
+def collapse_spaces(value: str) -> str:
+    return " ".join((value or "").strip().split())
+
+
+def normalize_text(value: str) -> str:
+    return collapse_spaces(value).lower()
+
+
+def normalize_title(value: str, field_label: str, min_len: int = 2, max_len: int = 150) -> str:
+    normalized = collapse_spaces(value)
+    if not (min_len <= len(normalized) <= max_len):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_label}: длина должна быть от {min_len} до {max_len} символов",
+        )
+    return normalized
+
+
+def normalize_license_number(raw_value: str) -> str:
+    value = collapse_spaces(raw_value)
+    if value.startswith("№"):
+        value = value[1:].strip()
+    if not value.isdigit() or not (4 <= len(value) <= 10):
+        raise HTTPException(status_code=400, detail="Номер лицензии: только цифры, длина 4..10")
+    return f"№{value}"
+
+
+def normalize_license_key(raw_value: str) -> str:
+    value = collapse_spaces(raw_value)
+    if value.startswith("№"):
+        value = value[1:].strip()
+    if not value:
+        return ""
+    if value.isdigit():
+        return value.lstrip("0") or "0"
+    return value.lower()
+
+def normalize_currency_code(raw_value: str) -> str:
+    code = collapse_spaces(raw_value).upper()
+    if len(code) != 3 or not code.isalpha():
+        raise HTTPException(status_code=400, detail="Код валюты: ровно 3 латинские буквы")
+    return code
+
+
+def has_duplicate_normalized(values: list[tuple[int, str]], candidate: str, exclude_id: int | None = None) -> bool:
+    target = normalize_text(candidate)
+    for row_id, row_value in values:
+        if exclude_id is not None and int(row_id) == int(exclude_id):
+            continue
+        if normalize_text(row_value) == target:
+            return True
+    return False
+
+
+def normalize_rating(raw_value: str) -> str:
+    rating = collapse_spaces(raw_value).upper()
+    if rating not in DEFAULT_RATING_CHOICES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Кредитный рейтинг должен быть одним из: {', '.join(DEFAULT_RATING_CHOICES)}",
+        )
+    return rating
 
 
 def validate_product_limits(interest_rate: float, min_deposit: float, term_months: int):
     if not (RATE_MIN <= float(interest_rate) <= RATE_MAX):
         raise HTTPException(
             status_code=400,
-            detail=f"Interest rate must be in range {RATE_MIN}..{RATE_MAX}",
+            detail=f"Ставка должна быть в диапазоне {RATE_MIN}..{RATE_MAX}",
         )
     if not (DEPOSIT_MIN <= float(min_deposit) <= DEPOSIT_MAX):
         raise HTTPException(
             status_code=400,
-            detail=f"Min deposit must be in range {DEPOSIT_MIN}..{DEPOSIT_MAX}",
+            detail=f"Минимальный взнос должен быть в диапазоне {DEPOSIT_MIN}..{DEPOSIT_MAX}",
         )
     if not (TERM_MIN <= int(term_months) <= TERM_MAX):
         raise HTTPException(
             status_code=400,
-            detail=f"Term must be in range {TERM_MIN}..{TERM_MAX}",
+            detail=f"Срок должен быть в диапазоне {TERM_MIN}..{TERM_MAX}",
         )
 
 
@@ -246,7 +305,7 @@ def build_search_options(db: Session):
         .scalars()
         .all()
     )
-    ratings = db.execute(select(Bank.rating).distinct().order_by(Bank.rating)).scalars().all()
+    ratings = DEFAULT_RATING_CHOICES
     currency_codes = (
         db.execute(select(Currency.currency_code).distinct().order_by(Currency.currency_code))
         .scalars()
@@ -506,17 +565,27 @@ def currency_distribution(db: Session):
 
 
 def create_bank(db: Session, payload: BankCreate):
-    bank = Bank(
-        bank_name=payload.bank_name.strip(),
-        license_no=payload.license_no.strip(),
-        rating=payload.rating.strip().upper(),
-    )
+    bank_name = normalize_title(payload.bank_name, "Название банка", min_len=2, max_len=100)
+    license_no = normalize_license_number(payload.license_no)
+    rating = normalize_rating(payload.rating)
+
+    existing_names = db.execute(select(Bank.id, Bank.bank_name)).all()
+    if has_duplicate_normalized(existing_names, bank_name):
+        raise HTTPException(status_code=400, detail="Банк с таким названием уже существует")
+
+    existing_licenses = db.execute(select(Bank.id, Bank.license_no)).all()
+    for row_id, row_license in existing_licenses:
+        if normalize_license_key(row_license) == normalize_license_key(license_no):
+            raise HTTPException(status_code=400, detail="Банк с таким номером лицензии уже существует")
+
+    bank = Bank(bank_name=bank_name, license_no=license_no, rating=rating)
     db.add(bank)
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Банк уже существует или значения некорректны") from exc
+        raise HTTPException(status_code=400, detail="Имеются ошибки ввода") from exc
+
     db.refresh(bank)
     return {
         "id": bank.id,
@@ -531,16 +600,31 @@ def update_bank(db: Session, bank_id: int, payload: BankCreate):
     if not bank:
         raise HTTPException(status_code=404, detail="Банк не найден")
 
-    bank.bank_name = payload.bank_name.strip()
-    bank.license_no = payload.license_no.strip()
-    bank.rating = payload.rating.strip().upper()
+    bank_name = normalize_title(payload.bank_name, "Название банка", min_len=2, max_len=100)
+    license_no = normalize_license_number(payload.license_no)
+    rating = normalize_rating(payload.rating)
+
+    existing_names = db.execute(select(Bank.id, Bank.bank_name)).all()
+    if has_duplicate_normalized(existing_names, bank_name, exclude_id=bank_id):
+        raise HTTPException(status_code=400, detail="Банк с таким названием уже существует")
+
+    existing_licenses = db.execute(select(Bank.id, Bank.license_no)).all()
+    for row_id, row_license in existing_licenses:
+        if int(row_id) == int(bank_id):
+            continue
+        if normalize_license_key(row_license) == normalize_license_key(license_no):
+            raise HTTPException(status_code=400, detail="Банк с таким номером лицензии уже существует")
+
+    bank.bank_name = bank_name
+    bank.license_no = license_no
+    bank.rating = rating
 
     db.add(bank)
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Банк уже существует или значения некорректны") from exc
+        raise HTTPException(status_code=400, detail="Имеются ошибки ввода") from exc
 
     db.refresh(bank)
     return {
@@ -567,15 +651,12 @@ def delete_bank(db: Session, bank_id: int):
     db.commit()
     return {"status": "deleted", "id": bank_id}
 
-def create_product_type(db: Session, type_name: str):
-    clean_name = type_name.strip()
-    if not clean_name:
-        raise HTTPException(status_code=400, detail="Название типа продукта обязательно")
 
-    exists = db.execute(
-        select(ProductType.id).where(func.lower(ProductType.type_name) == clean_name.lower())
-    ).scalar_one_or_none()
-    if exists:
+def create_product_type(db: Session, type_name: str):
+    clean_name = normalize_title(type_name, "Название типа продукта", min_len=2, max_len=50)
+
+    existing_names = db.execute(select(ProductType.id, ProductType.type_name)).all()
+    if has_duplicate_normalized(existing_names, clean_name):
         raise HTTPException(status_code=400, detail="Тип продукта уже существует")
 
     next_id = db.execute(select(func.coalesce(func.max(ProductType.id), 0) + 1)).scalar_one()
@@ -586,20 +667,14 @@ def create_product_type(db: Session, type_name: str):
 
 
 def update_product_type(db: Session, type_id: int, type_name: str):
-    clean_name = type_name.strip()
-    if not clean_name:
-        raise HTTPException(status_code=400, detail="Название типа продукта обязательно")
+    clean_name = normalize_title(type_name, "Название типа продукта", min_len=2, max_len=50)
 
     product_type = db.get(ProductType, type_id)
     if not product_type:
         raise HTTPException(status_code=404, detail="Тип продукта не найден")
 
-    duplicate = db.execute(
-        select(ProductType.id)
-        .where(func.lower(ProductType.type_name) == clean_name.lower())
-        .where(ProductType.id != type_id)
-    ).scalar_one_or_none()
-    if duplicate:
+    existing_names = db.execute(select(ProductType.id, ProductType.type_name)).all()
+    if has_duplicate_normalized(existing_names, clean_name, exclude_id=type_id):
         raise HTTPException(status_code=400, detail="Тип продукта с таким названием уже есть")
 
     product_type.type_name = clean_name
@@ -627,9 +702,7 @@ def delete_product_type(db: Session, type_id: int):
 
 
 def create_currency(db: Session, currency_code: str):
-    clean_code = currency_code.strip().upper()
-    if not clean_code:
-        raise HTTPException(status_code=400, detail="Код валюты обязателен")
+    clean_code = normalize_currency_code(currency_code)
 
     exists = db.execute(
         select(Currency.id).where(func.upper(Currency.currency_code) == clean_code)
@@ -645,9 +718,7 @@ def create_currency(db: Session, currency_code: str):
 
 
 def update_currency(db: Session, currency_id: int, currency_code: str):
-    clean_code = currency_code.strip().upper()
-    if not clean_code:
-        raise HTTPException(status_code=400, detail="Код валюты обязателен")
+    clean_code = normalize_currency_code(currency_code)
 
     currency = db.get(Currency, currency_id)
     if not currency:
@@ -687,24 +758,30 @@ def delete_currency(db: Session, currency_id: int):
 
 def create_product(db: Session, payload: ProductCreate):
     validate_product_limits(payload.interest_rate, payload.min_deposit, payload.term_months)
+    product_title = normalize_title(payload.product_title, "Название продукта", min_len=2, max_len=150)
+
+    existing_titles = db.execute(select(Product.id, Product.product_title)).all()
+    if has_duplicate_normalized(existing_titles, product_title):
+        raise HTTPException(status_code=400, detail="Продукт с таким названием уже существует")
+
     product = Product(
         bank_id=payload.bank_id,
         type_id=payload.type_id,
         risk_id=payload.risk_id,
         currency_id=payload.currency_id,
         client_id=payload.client_id,
-        product_title=payload.product_title.strip(),
+        product_title=product_title,
         interest_rate=payload.interest_rate,
         min_deposit=payload.min_deposit,
         term_months=payload.term_months,
-        description=payload.description,
+        description=collapse_spaces(payload.description or "") or None,
     )
     db.add(product)
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Invalid foreign key or field values") from exc
+        raise HTTPException(status_code=400, detail="Имеются ошибки ввода") from exc
     db.refresh(product)
     return {
         "id": product.id,
@@ -716,7 +793,7 @@ def update_product_rate(db: Session, product_id: int, payload: ProductRateUpdate
     validate_product_limits(payload.interest_rate, payload.min_deposit, payload.term_months)
     product = db.get(Product, product_id)
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Продукт не найден")
 
     product.interest_rate = payload.interest_rate
     product.min_deposit = payload.min_deposit
@@ -738,18 +815,23 @@ def update_product_full(db: Session, product_id: int, payload: ProductFullUpdate
     validate_product_limits(payload.interest_rate, payload.min_deposit, payload.term_months)
     product = db.get(Product, product_id)
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Продукт не найден")
+
+    product_title = normalize_title(payload.product_title, "Название продукта", min_len=2, max_len=150)
+    existing_titles = db.execute(select(Product.id, Product.product_title)).all()
+    if has_duplicate_normalized(existing_titles, product_title, exclude_id=product_id):
+        raise HTTPException(status_code=400, detail="Продукт с таким названием уже существует")
 
     product.bank_id = payload.bank_id
     product.type_id = payload.type_id
     product.risk_id = payload.risk_id
     product.currency_id = payload.currency_id
     product.client_id = payload.client_id
-    product.product_title = payload.product_title.strip()
+    product.product_title = product_title
     product.interest_rate = payload.interest_rate
     product.min_deposit = payload.min_deposit
     product.term_months = payload.term_months
-    product.description = payload.description
+    product.description = collapse_spaces(payload.description or "") or None
     product.is_active = payload.is_active
 
     db.add(product)
@@ -757,7 +839,7 @@ def update_product_full(db: Session, product_id: int, payload: ProductFullUpdate
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Invalid values for product update") from exc
+        raise HTTPException(status_code=400, detail="Имеются ошибки ввода") from exc
     db.refresh(product)
 
     return {
@@ -770,12 +852,11 @@ def update_product_full(db: Session, product_id: int, payload: ProductFullUpdate
 def delete_product(db: Session, product_id: int):
     product = db.get(Product, product_id)
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Продукт не найден")
 
     db.delete(product)
     db.commit()
     return {"status": "deleted", "id": product_id}
-
 
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)):
@@ -1000,9 +1081,14 @@ def manage_page(
     selected_type_id_manual: str = "",
     selected_currency_id: str | None = None,
     selected_currency_id_manual: str = "",
+    bank_mode: str | None = None,
+    type_mode: str | None = None,
+    currency_mode: str | None = None,
+    product_mode: str | None = None,
     message: str | None = None,
+    status: str | None = None,
     db: Session = Depends(get_db),
- ):
+):
     def parse_optional_id(raw_value: str | None) -> int | None:
         if raw_value is None:
             return None
@@ -1025,20 +1111,29 @@ def manage_page(
     if selected_currency_id_manual.strip().isdigit():
         selected_currency_id = int(selected_currency_id_manual.strip())
 
+    if bank_mode not in {"create", "edit"}:
+        bank_mode = "edit" if selected_bank_id else "create"
+    if type_mode not in {"create", "edit"}:
+        type_mode = "edit" if selected_type_id else "create"
+    if currency_mode not in {"create", "edit"}:
+        currency_mode = "edit" if selected_currency_id else "create"
+    if product_mode not in {"create", "edit"}:
+        product_mode = "edit" if selected_product_id else "create"
+
+    if bank_mode == "create":
+        selected_bank_id = None
+    if type_mode == "create":
+        selected_type_id = None
+    if currency_mode == "create":
+        selected_currency_id = None
+    if product_mode == "create":
+        selected_product_id = None
+
     banks = db.execute(select(Bank).order_by(Bank.bank_name)).scalars().all()
     types = db.execute(select(ProductType).order_by(ProductType.type_name)).scalars().all()
     risks = db.execute(select(RiskLevel).order_by(RiskLevel.id)).scalars().all()
     currencies = db.execute(select(Currency).order_by(Currency.currency_code)).scalars().all()
-    ratings_from_db = (
-        db.execute(select(Bank.rating).distinct().where(Bank.rating.is_not(None)).order_by(Bank.rating))
-        .scalars()
-        .all()
-    )
-    rating_choices: list[str] = []
-    for rating_value in [*DEFAULT_RATING_CHOICES, *ratings_from_db]:
-        clean_value = (rating_value or "").strip().upper()
-        if clean_value and clean_value not in rating_choices:
-            rating_choices.append(clean_value)
+    rating_choices = DEFAULT_RATING_CHOICES
 
     product_options = (
         db.execute(
@@ -1136,26 +1231,40 @@ def manage_page(
         )
         selected_currency = row_to_dict(selected_currency) if selected_currency else None
 
-    message_map = {
-        "bank-created": "Банк добавлен",
-        "bank-updated": "Банк обновлен",
-        "bank-deleted": "Банк удален",
-        "type-created": "Тип продукта добавлен",
-        "type-updated": "Тип продукта обновлен",
-        "type-deleted": "Тип продукта удален",
-        "currency-created": "Валюта добавлена",
-        "currency-updated": "Валюта обновлена",
-        "currency-deleted": "Валюта удалена",
-        "product-created": "Продукт добавлен",
-        "product-full-updated": "Запись полностью обновлена",
-        "product-deleted": "Запись удалена",
+    selected_bank_license_digits = ""
+    if selected_bank and selected_bank.get("license_no"):
+        selected_bank_license_digits = selected_bank["license_no"].replace("№", "", 1)
+
+    message_map: dict[str, tuple[str, str]] = {
+        "bank-created": ("success", "Ввод прошел успешно"),
+        "bank-updated": ("success", "Изменения банка сохранены"),
+        "bank-deleted": ("success", "Банк удален"),
+        "type-created": ("success", "Тип продукта добавлен"),
+        "type-updated": ("success", "Тип продукта обновлен"),
+        "type-deleted": ("success", "Тип продукта удален"),
+        "currency-created": ("success", "Валюта добавлена"),
+        "currency-updated": ("success", "Валюта обновлена"),
+        "currency-deleted": ("success", "Валюта удалена"),
+        "product-created": ("success", "Продукт добавлен"),
+        "product-full-updated": ("success", "Продукт обновлен"),
+        "product-deleted": ("success", "Продукт удален"),
     }
+
+    modal_message = None
+    modal_status = None
+    if message:
+        if message in message_map:
+            modal_status, modal_message = message_map[message]
+        else:
+            modal_status = status if status in {"success", "error", "info"} else "error"
+            modal_message = message
 
     return templates.TemplateResponse(
         "manage.html",
         {
             "request": request,
-            "message": message_map.get(message, message),
+            "message": modal_message,
+            "message_status": modal_status,
             "selected_product_id": selected_product_id,
             "selected_bank_id": selected_bank_id,
             "selected_type_id": selected_type_id,
@@ -1170,6 +1279,11 @@ def manage_page(
             "risks": risks,
             "currencies": currencies,
             "rating_choices": rating_choices,
+            "bank_mode": bank_mode,
+            "type_mode": type_mode,
+            "currency_mode": currency_mode,
+            "product_mode": product_mode,
+            "selected_bank_license_digits": selected_bank_license_digits,
         },
     )
 
@@ -1177,33 +1291,54 @@ def manage_page(
 @app.post("/manage/banks")
 def manage_create_bank(
     bank_name: str = Form(...),
-    license_no: str = Form(...),
+    license_no_digits: str = Form(...),
     rating: str = Form(...),
     db: Session = Depends(get_db),
 ):
     try:
-        create_bank(db, BankCreate(bank_name=bank_name, license_no=license_no, rating=rating))
+        create_bank(
+            db,
+            BankCreate(
+                bank_name=bank_name,
+                license_no=f"№{license_no_digits.strip()}",
+                rating=rating,
+            ),
+        )
     except HTTPException as exc:
-        return RedirectResponse(url=f"/manage?message={quote_plus(str(exc.detail))}", status_code=303)
-    return RedirectResponse(url="/manage?message=bank-created", status_code=303)
+        return RedirectResponse(
+            url=f"/manage?bank_mode=create&status=error&message={quote_plus(str(exc.detail))}",
+            status_code=303,
+        )
+    return RedirectResponse(url="/manage?bank_mode=create&status=success&message=bank-created", status_code=303)
 
 
 @app.post("/manage/banks/{bank_id}/update")
 def manage_update_bank(
     bank_id: int,
     bank_name: str = Form(...),
-    license_no: str = Form(...),
+    license_no_digits: str = Form(...),
     rating: str = Form(...),
     db: Session = Depends(get_db),
 ):
     try:
-        update_bank(db, bank_id, BankCreate(bank_name=bank_name, license_no=license_no, rating=rating))
+        update_bank(
+            db,
+            bank_id,
+            BankCreate(
+                bank_name=bank_name,
+                license_no=f"№{license_no_digits.strip()}",
+                rating=rating,
+            ),
+        )
     except HTTPException as exc:
         return RedirectResponse(
-            url=f"/manage?selected_bank_id={bank_id}&message={quote_plus(str(exc.detail))}",
+            url=f"/manage?bank_mode=edit&selected_bank_id={bank_id}&status=error&message={quote_plus(str(exc.detail))}",
             status_code=303,
         )
-    return RedirectResponse(url=f"/manage?selected_bank_id={bank_id}&message=bank-updated", status_code=303)
+    return RedirectResponse(
+        url=f"/manage?bank_mode=edit&selected_bank_id={bank_id}&status=success&message=bank-updated",
+        status_code=303,
+    )
 
 
 @app.post("/manage/banks/{bank_id}/delete")
@@ -1212,10 +1347,10 @@ def manage_delete_bank(bank_id: int, db: Session = Depends(get_db)):
         delete_bank(db, bank_id)
     except HTTPException as exc:
         return RedirectResponse(
-            url=f"/manage?selected_bank_id={bank_id}&message={quote_plus(str(exc.detail))}",
+            url=f"/manage?bank_mode=edit&selected_bank_id={bank_id}&status=error&message={quote_plus(str(exc.detail))}",
             status_code=303,
         )
-    return RedirectResponse(url="/manage?message=bank-deleted", status_code=303)
+    return RedirectResponse(url="/manage?bank_mode=create&status=success&message=bank-deleted", status_code=303)
 
 
 @app.post("/manage/product-types")
@@ -1223,8 +1358,11 @@ def manage_create_product_type(type_name: str = Form(...), db: Session = Depends
     try:
         create_product_type(db, type_name)
     except HTTPException as exc:
-        return RedirectResponse(url=f"/manage?message={quote_plus(str(exc.detail))}", status_code=303)
-    return RedirectResponse(url="/manage?message=type-created", status_code=303)
+        return RedirectResponse(
+            url=f"/manage?type_mode=create&status=error&message={quote_plus(str(exc.detail))}",
+            status_code=303,
+        )
+    return RedirectResponse(url="/manage?type_mode=create&status=success&message=type-created", status_code=303)
 
 
 @app.post("/manage/product-types/{type_id}/update")
@@ -1237,10 +1375,13 @@ def manage_update_product_type(
         update_product_type(db, type_id, type_name)
     except HTTPException as exc:
         return RedirectResponse(
-            url=f"/manage?selected_type_id={type_id}&message={quote_plus(str(exc.detail))}",
+            url=f"/manage?type_mode=edit&selected_type_id={type_id}&status=error&message={quote_plus(str(exc.detail))}",
             status_code=303,
         )
-    return RedirectResponse(url=f"/manage?selected_type_id={type_id}&message=type-updated", status_code=303)
+    return RedirectResponse(
+        url=f"/manage?type_mode=edit&selected_type_id={type_id}&status=success&message=type-updated",
+        status_code=303,
+    )
 
 
 @app.post("/manage/product-types/{type_id}/delete")
@@ -1249,10 +1390,10 @@ def manage_delete_product_type(type_id: int, db: Session = Depends(get_db)):
         delete_product_type(db, type_id)
     except HTTPException as exc:
         return RedirectResponse(
-            url=f"/manage?selected_type_id={type_id}&message={quote_plus(str(exc.detail))}",
+            url=f"/manage?type_mode=edit&selected_type_id={type_id}&status=error&message={quote_plus(str(exc.detail))}",
             status_code=303,
         )
-    return RedirectResponse(url="/manage?message=type-deleted", status_code=303)
+    return RedirectResponse(url="/manage?type_mode=create&status=success&message=type-deleted", status_code=303)
 
 
 @app.post("/manage/currencies")
@@ -1260,8 +1401,11 @@ def manage_create_currency(currency_code: str = Form(...), db: Session = Depends
     try:
         create_currency(db, currency_code)
     except HTTPException as exc:
-        return RedirectResponse(url=f"/manage?message={quote_plus(str(exc.detail))}", status_code=303)
-    return RedirectResponse(url="/manage?message=currency-created", status_code=303)
+        return RedirectResponse(
+            url=f"/manage?currency_mode=create&status=error&message={quote_plus(str(exc.detail))}",
+            status_code=303,
+        )
+    return RedirectResponse(url="/manage?currency_mode=create&status=success&message=currency-created", status_code=303)
 
 
 @app.post("/manage/currencies/{currency_id}/update")
@@ -1274,11 +1418,11 @@ def manage_update_currency(
         update_currency(db, currency_id, currency_code)
     except HTTPException as exc:
         return RedirectResponse(
-            url=f"/manage?selected_currency_id={currency_id}&message={quote_plus(str(exc.detail))}",
+            url=f"/manage?currency_mode=edit&selected_currency_id={currency_id}&status=error&message={quote_plus(str(exc.detail))}",
             status_code=303,
         )
     return RedirectResponse(
-        url=f"/manage?selected_currency_id={currency_id}&message=currency-updated",
+        url=f"/manage?currency_mode=edit&selected_currency_id={currency_id}&status=success&message=currency-updated",
         status_code=303,
     )
 
@@ -1289,10 +1433,10 @@ def manage_delete_currency(currency_id: int, db: Session = Depends(get_db)):
         delete_currency(db, currency_id)
     except HTTPException as exc:
         return RedirectResponse(
-            url=f"/manage?selected_currency_id={currency_id}&message={quote_plus(str(exc.detail))}",
+            url=f"/manage?currency_mode=edit&selected_currency_id={currency_id}&status=error&message={quote_plus(str(exc.detail))}",
             status_code=303,
         )
-    return RedirectResponse(url="/manage?message=currency-deleted", status_code=303)
+    return RedirectResponse(url="/manage?currency_mode=create&status=success&message=currency-deleted", status_code=303)
 
 
 @app.post("/manage/products")
@@ -1325,10 +1469,13 @@ def manage_create_product(
             ),
         )
     except HTTPException as exc:
-        return RedirectResponse(url=f"/manage?message={quote_plus(str(exc.detail))}", status_code=303)
+        return RedirectResponse(
+            url=f"/manage?product_mode=create&status=error&message={quote_plus(str(exc.detail))}",
+            status_code=303,
+        )
 
     return RedirectResponse(
-        url=f"/manage?selected_product_id={created['id']}&message=product-created",
+        url=f"/manage?product_mode=edit&selected_product_id={created['id']}&status=success&message=product-created",
         status_code=303,
     )
 
@@ -1368,20 +1515,43 @@ def manage_update_product_full(
         )
     except HTTPException as exc:
         return RedirectResponse(
-            url=f"/manage?selected_product_id={product_id}&message={quote_plus(str(exc.detail))}",
+            url=f"/manage?product_mode=edit&selected_product_id={product_id}&status=error&message={quote_plus(str(exc.detail))}",
             status_code=303,
         )
 
     return RedirectResponse(
-        url=f"/manage?selected_product_id={product_id}&message=product-full-updated",
+        url=f"/manage?product_mode=edit&selected_product_id={product_id}&status=success&message=product-full-updated",
         status_code=303,
     )
 
 
 @app.post("/manage/products/{product_id}/delete")
 def manage_delete_product(product_id: int, db: Session = Depends(get_db)):
-    delete_product(db, product_id)
-    return RedirectResponse(url="/manage?message=product-deleted", status_code=303)
+    try:
+        delete_product(db, product_id)
+    except HTTPException as exc:
+        return RedirectResponse(
+            url=f"/manage?product_mode=edit&selected_product_id={product_id}&status=error&message={quote_plus(str(exc.detail))}",
+            status_code=303,
+        )
+    return RedirectResponse(url="/manage?product_mode=create&status=success&message=product-deleted", status_code=303)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

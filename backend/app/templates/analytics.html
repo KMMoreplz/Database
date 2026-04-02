@@ -25,6 +25,20 @@
       </thead>
       <tbody>
       {% for row in comparison_rows %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Банк</th>
+          <th>Рейтинг</th>
+          <th>Лицензия</th>
+          <th>Продуктов</th>
+          <th>Ср. ставка, %</th>
+          <th>Ставка vs рынок</th>
+          <th>Ср. мин. взнос</th>
+          <th>Взнос vs рынок</th>
+          <th>Ср. срок, мес</th>
+          <th>Срок vs рынок</th>
+        </tr>
+        {% endif %}
         <tr class="{% if selected_bank_id == row.id %}selected-row{% endif %}">
           <td><a href="/analytics?selected_bank_id={{ row.id }}">{{ row.bank_name }}</a></td>
           <td>{{ row.rating }}</td>
@@ -78,7 +92,7 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Название</th>
+          <th>Название продукта</th>
           <th>Тип</th>
           <th>Валюта</th>
           <th>Ставка, %</th>
@@ -88,6 +102,17 @@
       </thead>
       <tbody>
       {% for row in selected.products %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>ID</th>
+          <th>Название продукта</th>
+          <th>Тип</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+        {% endif %}
         <tr>
           <td>{{ row.id }}</td>
           <td>{{ row.product_title }}</td>
@@ -115,6 +140,12 @@
       </thead>
       <tbody>
       {% for row in selected.by_type %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Тип продукта</th>
+          <th>Количество</th>
+        </tr>
+        {% endif %}
         <tr>
           <td>{{ row.type_name }}</td>
           <td>{{ row.count }}</td>
@@ -141,6 +172,15 @@
       </thead>
       <tbody>
       {% for row in type_analytics %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Тип продукта</th>
+          <th>Количество</th>
+          <th>Средняя ставка, %</th>
+          <th>Средний мин. взнос</th>
+          <th>Средний срок, мес</th>
+        </tr>
+        {% endif %}
         <tr>
           <td>{{ row.type_name }}</td>
           <td>{{ row.total_products }}</td>
@@ -160,7 +200,7 @@
     <table>
       <thead>
         <tr>
-          <th>Название</th>
+          <th>Название продукта</th>
           <th>Банк</th>
           <th>Тип</th>
           <th>Ставка, %</th>
@@ -170,6 +210,16 @@
       </thead>
       <tbody>
       {% for row in top_products %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Название продукта</th>
+          <th>Банк</th>
+          <th>Тип</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+        {% endif %}
         <tr>
           <td>{{ row.product_title }}</td>
           <td>{{ row.bank_name }}</td>
@@ -196,6 +246,12 @@
       </thead>
       <tbody>
       {% for row in currency_stats %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Валюта</th>
+          <th>Количество продуктов</th>
+        </tr>
+        {% endif %}
         <tr>
           <td>{{ row.currency_code }}</td>
           <td>{{ row.products_count }}</td>
