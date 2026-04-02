@@ -18,6 +18,7 @@ from .schemas import BankCreate, ProductCreate, ProductFullUpdate, ProductRateUp
 SITE_TITLE = "Обозреватель банковских продуктов"
 FOOTER_DB_NAME = "БД Банковские продукты"
 FOOTER_SITE_DESC = "Информационная площадка аналитики банковских продуктов"
+STATIC_ASSET_VERSION = "2026-04-02-01"
 
 HOME_DB_NAME = "<Информационная система подбора банковских продуктов>"
 HOME_DB_AUTHOR = "<Травкин М.Е.  / ИВТ-Б23>"
@@ -34,8 +35,8 @@ templates.env.globals.update(
     footer_db_name=FOOTER_DB_NAME,
     footer_site_desc=FOOTER_SITE_DESC,
     current_year=datetime.now().year,
+    static_asset_version=STATIC_ASSET_VERSION,
 )
-
 
 RATE_MIN = 0.0
 RATE_MAX = 30.0
@@ -1535,6 +1536,9 @@ def manage_delete_product(product_id: int, db: Session = Depends(get_db)):
             status_code=303,
         )
     return RedirectResponse(url="/manage?product_mode=create&status=success&message=product-deleted", status_code=303)
+
+
+
 
 
 
