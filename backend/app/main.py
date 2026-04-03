@@ -300,25 +300,20 @@ def product_summary(db: Session):
 
 
 def build_search_options(db: Session):
-    bank_names = db.execute(select(Bank.bank_name).distinct().order_by(Bank.bank_name)).scalars().all()
-    type_names = (
-        db.execute(select(ProductType.type_name).distinct().order_by(ProductType.type_name))
-        .scalars()
-        .all()
-    )
+    # Для фильтров на странице поиска продуктов показываем только реально используемые значения.
+    matrix = product_filter_matrix(db)
+
+    type_names = sorted({row["type_name"] for row in matrix if row.get("type_name")})
+    bank_names = sorted({row["bank_name"] for row in matrix if row.get("bank_name")})
+    currency_codes = sorted({row["currency_code"] for row in matrix if row.get("currency_code")})
+
     ratings = DEFAULT_RATING_CHOICES
-    currency_codes = (
-        db.execute(select(Currency.currency_code).distinct().order_by(Currency.currency_code))
-        .scalars()
-        .all()
-    )
     return {
         "bank_names": bank_names,
         "type_names": type_names,
         "ratings": ratings,
         "currency_codes": currency_codes,
     }
-
 
 def product_filter_matrix(db: Session):
     stmt = text(
@@ -1536,6 +1531,8 @@ def manage_delete_product(product_id: int, db: Session = Depends(get_db)):
             status_code=303,
         )
     return RedirectResponse(url="/manage?product_mode=create&status=success&message=product-deleted", status_code=303)
+
+
 
 
 
