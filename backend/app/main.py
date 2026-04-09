@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 from urllib.parse import quote_plus
 from decimal import Decimal
@@ -117,8 +118,11 @@ def normalize_license_key(raw_value: str) -> str:
 
 def normalize_currency_code(raw_value: str) -> str:
     code = collapse_spaces(raw_value).upper()
-    if len(code) != 3 or not code.isalpha():
-        raise HTTPException(status_code=400, detail="Код валюты: ровно 3 латинские буквы")
+    if not re.fullmatch(r"[A-Z]{3}", code):
+        raise HTTPException(
+            status_code=400,
+            detail="Код валюты: только 3 заглавные латинские буквы (например, USD)",
+        )
     return code
 
 

@@ -248,7 +248,18 @@
       <h4>Редактирование валюты: {{ selected_currency.currency_code }} (ID={{ selected_currency.id }})</h4>
       <form class="grid-form" method="post" action="/manage/currencies/{{ selected_currency.id }}/update">
         <label>Код валюты
-          <input name="currency_code" maxlength="3" value="{{ selected_currency.currency_code }}" required />
+          <input
+            name="currency_code"
+            minlength="3"
+            maxlength="3"
+            pattern="[A-Z]{3}"
+            placeholder="USD"
+            title="Только 3 латинские заглавные буквы, например USD"
+            value="{{ selected_currency.currency_code }}"
+            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)"
+            required
+          />
+          <span class="field-note">Только 3 латинские буквы, например USD</span>
         </label>
         <button type="submit">Сохранить валюту</button>
       </form>
@@ -261,7 +272,17 @@
       <h4>Создание новой валюты</h4>
       <form class="grid-form" method="post" action="/manage/currencies" data-draft-key="manage_currency_form_v1">
         <label>Код валюты
-          <input name="currency_code" maxlength="3" required />
+          <input
+            name="currency_code"
+            minlength="3"
+            maxlength="3"
+            pattern="[A-Z]{3}"
+            placeholder="USD"
+            title="Только 3 латинские заглавные буквы, например USD"
+            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)"
+            required
+          />
+          <span class="field-note">Только 3 латинские буквы, например USD</span>
         </label>
         <button type="submit">Добавить валюту</button>
       </form>
@@ -435,7 +456,17 @@
   <form method="post" action="/manage/currencies" class="grid-form dialog-form">
     <h4>Новая валюта</h4>
     <label>Код валюты
-      <input name="currency_code" maxlength="3" required />
+      <input
+        name="currency_code"
+        minlength="3"
+        maxlength="3"
+        pattern="[A-Z]{3}"
+        placeholder="USD"
+        title="Только 3 латинские заглавные буквы, например USD"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)"
+        required
+      />
+      <span class="field-note">Только 3 латинские буквы, например USD</span>
     </label>
     <div class="dialog-actions">
       <button type="submit">Добавить</button>
