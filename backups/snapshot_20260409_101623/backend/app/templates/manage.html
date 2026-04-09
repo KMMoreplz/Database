@@ -1,0 +1,694 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Ввод, редактирование и удаление данных</h2>
+  <p class="hint">Раздел объединяет ввод всех атрибутов, редактирование, удаление и поддержку классификаторов.</p>
+</section>
+
+<section class="card" id="bank-section">
+  <h3>Банки: создание / просмотр и редактирование / удаление</h3>
+
+  <div class="mode-toggle-line">
+    <span class="mode-label">Создание банка</span>
+    <label class="switch" for="bank-mode-toggle" title="Переключить режим формы банка">
+      <input type="checkbox" id="bank-mode-toggle" {% if bank_mode == 'edit' %}checked{% endif %} />
+      <span class="slider"></span>
+    </label>
+    <span class="mode-label">Просмотр и редактирование</span>
+  </div>
+
+  <div id="bank-create-panel" class="mode-panel">
+    <h4>Создание банка</h4>
+    <form class="grid-form" method="post" action="/manage/banks" data-draft-key="manage_bank_create_v1">
+      <label>Название банка
+        <input name="bank_name" required maxlength="100" />
+      </label>
+
+      <label>Лицензия
+        <div class="license-input-group">
+          <span class="license-prefix">№</span>
+          <input
+            name="license_no_digits"
+            required
+            inputmode="numeric"
+            pattern="[0-9]{4,10}"
+            minlength="4"
+            maxlength="10"
+            placeholder="123456"
+            title="Введите от 4 до 10 цифр"
+          />
+        </div>
+        <span class="field-note">Пример: №123456</span>
+      </label>
+
+      <label>Кредитный рейтинг
+        <select name="rating" required>
+          {% for item in rating_choices %}
+          <option value="{{ item }}">{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="form-actions">
+        <button type="submit">Создать банк</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="bank-edit-panel" class="mode-panel">
+    <h4>Просмотр и редактирование</h4>
+
+    <form class="grid-form" method="get" action="/manage">
+      <input type="hidden" name="bank_mode" value="edit" />
+      <label>Выбор банка по названию
+        <select name="selected_bank_id" id="selected_bank_id_select">
+          <option value="">Выберите банк</option>
+          {% for b in banks %}
+          <option value="{{ b.id }}" {% if selected_bank_id == b.id %}selected{% endif %}>{{ b.bank_name }} [ID={{ b.id }}]</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Или ручной ввод ID банка
+        <input name="selected_bank_id_manual" id="selected_bank_id_manual" type="number" min="1" placeholder="Введите ID банка" />
+      </label>
+
+      <div class="form-actions">
+        <button type="submit">Открыть банк</button>
+      </div>
+    </form>
+
+    {% if selected_bank_id and not selected_bank %}
+      <p class="warn">Банк с выбранным ID не найден.</p>
+    {% endif %}
+
+    {% if selected_bank %}
+    <div class="card inner-card">
+      <h4>Редактирование банка: {{ selected_bank.bank_name }} (ID={{ selected_bank.id }})</h4>
+
+      <form class="grid-form" method="post" action="/manage/banks/{{ selected_bank.id }}/update">
+        <label>Название банка
+          <input name="bank_name" value="{{ selected_bank.bank_name }}" required maxlength="100" />
+        </label>
+
+        <label>Лицензия
+          <div class="license-input-group">
+            <span class="license-prefix">№</span>
+            <input
+              name="license_no_digits"
+              required
+              inputmode="numeric"
+              pattern="[0-9]{4,10}"
+              minlength="4"
+              maxlength="10"
+              placeholder="123456"
+              title="Введите от 4 до 10 цифр"
+              value="{{ selected_bank_license_digits }}"
+            />
+          </div>
+          <span class="field-note">Пример: №123456</span>
+        </label>
+
+        <label>Кредитный рейтинг
+          <select name="rating" required>
+            {% for item in rating_choices %}
+            <option value="{{ item }}" {% if selected_bank.rating == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <div class="form-actions">
+          <button type="submit">Сохранить изменения</button>
+        </div>
+      </form>
+
+      <form method="post" action="/manage/banks/{{ selected_bank.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить банк? Разрешено только если нет связанных продуктов.');">
+        <button type="submit" class="danger-btn">Удалить банк</button>
+      </form>
+      <p class="hint">Связанных продуктов: {{ selected_bank.products_count }}. Удаление возможно только при 0.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card" id="type-section">
+  <h3>Типы продуктов: создание / редактирование / удаление</h3>
+
+  <div class="mode-toggle-line">
+    <span class="mode-label">Создание типа</span>
+    <label class="switch" for="type-mode-toggle" title="Переключить режим типа продукта">
+      <input type="checkbox" id="type-mode-toggle" {% if type_mode == 'edit' %}checked{% endif %} />
+      <span class="slider"></span>
+    </label>
+    <span class="mode-label">Просмотр и редактирование</span>
+  </div>
+
+  {% if type_mode == 'edit' %}
+  <div id="type-edit-tools" class="mode-panel">
+    <form class="grid-form" method="get" action="/manage">
+      <input type="hidden" name="type_mode" value="edit" />
+      <label>Выбор типа
+        <select name="selected_type_id">
+          <option value="">Выберите тип</option>
+          {% for t in types %}
+          <option value="{{ t.id }}" {% if selected_type_id == t.id %}selected{% endif %}>{{ t.type_name }} [ID={{ t.id }}]</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Или ручной ввод ID типа
+        <input name="selected_type_id_manual" type="number" min="1" placeholder="Введите ID типа" />
+      </label>
+
+      <div class="form-actions">
+        <button type="submit">Открыть тип</button>
+      </div>
+    </form>
+
+    {% if selected_type_id and not selected_type %}
+      <p class="warn">Тип с выбранным ID не найден.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card inner-card">
+    {% if type_mode == 'edit' and not selected_type %}
+      <h4>Просмотр и редактирование типа</h4>
+      <p class="hint">Выберите тип в блоке выше.</p>
+    {% elif selected_type %}
+      <h4>Редактирование типа: {{ selected_type.type_name }} (ID={{ selected_type.id }})</h4>
+      <form class="grid-form" method="post" action="/manage/product-types/{{ selected_type.id }}/update">
+        <label>Название типа продукта
+          <input name="type_name" value="{{ selected_type.type_name }}" required maxlength="50" />
+        </label>
+        <button type="submit">Сохранить тип</button>
+      </form>
+
+      <form method="post" action="/manage/product-types/{{ selected_type.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить тип продукта?');">
+        <button type="submit" class="danger-btn">Удалить тип</button>
+      </form>
+      <p class="hint">Связанных продуктов: {{ selected_type.products_count }}. Удаление возможно только при 0.</p>
+    {% else %}
+      <h4>Создание нового типа</h4>
+      <form class="grid-form" method="post" action="/manage/product-types" data-draft-key="manage_type_form_v1">
+        <label>Название типа продукта
+          <input name="type_name" required maxlength="50" />
+        </label>
+        <button type="submit">Добавить тип</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card" id="currency-section">
+  <h3>Валюты: создание / редактирование / удаление</h3>
+
+  <div class="mode-toggle-line">
+    <span class="mode-label">Создание валюты</span>
+    <label class="switch" for="currency-mode-toggle" title="Переключить режим валюты">
+      <input type="checkbox" id="currency-mode-toggle" {% if currency_mode == 'edit' %}checked{% endif %} />
+      <span class="slider"></span>
+    </label>
+    <span class="mode-label">Просмотр и редактирование</span>
+  </div>
+
+  {% if currency_mode == 'edit' %}
+  <div id="currency-edit-tools" class="mode-panel">
+    <form class="grid-form" method="get" action="/manage">
+      <input type="hidden" name="currency_mode" value="edit" />
+      <label>Выбор валюты
+        <select name="selected_currency_id">
+          <option value="">Выберите валюту</option>
+          {% for cur in currencies %}
+          <option value="{{ cur.id }}" {% if selected_currency_id == cur.id %}selected{% endif %}>{{ cur.currency_code }} [ID={{ cur.id }}]</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Или ручной ввод ID валюты
+        <input name="selected_currency_id_manual" type="number" min="1" placeholder="Введите ID валюты" />
+      </label>
+
+      <div class="form-actions">
+        <button type="submit">Открыть валюту</button>
+      </div>
+    </form>
+
+    {% if selected_currency_id and not selected_currency %}
+      <p class="warn">Валюта с выбранным ID не найдена.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card inner-card">
+    {% if currency_mode == 'edit' and not selected_currency %}
+      <h4>Просмотр и редактирование валюты</h4>
+      <p class="hint">Выберите валюту в блоке выше.</p>
+    {% elif selected_currency %}
+      <h4>Редактирование валюты: {{ selected_currency.currency_code }} (ID={{ selected_currency.id }})</h4>
+      <form class="grid-form" method="post" action="/manage/currencies/{{ selected_currency.id }}/update">
+        <label>Код валюты
+          <input name="currency_code" maxlength="3" value="{{ selected_currency.currency_code }}" required />
+        </label>
+        <button type="submit">Сохранить валюту</button>
+      </form>
+
+      <form method="post" action="/manage/currencies/{{ selected_currency.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить валюту?');">
+        <button type="submit" class="danger-btn">Удалить валюту</button>
+      </form>
+      <p class="hint">Связанных продуктов: {{ selected_currency.products_count }}. Удаление возможно только при 0.</p>
+    {% else %}
+      <h4>Создание новой валюты</h4>
+      <form class="grid-form" method="post" action="/manage/currencies" data-draft-key="manage_currency_form_v1">
+        <label>Код валюты
+          <input name="currency_code" maxlength="3" required />
+        </label>
+        <button type="submit">Добавить валюту</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card" id="product-section">
+  <h3>Ввод данных: продукт (создание / редактирование / удаление)</h3>
+  <p class="hint">Черновик формы сохраняется автоматически при переходах между разделами.</p>
+
+  <div class="mode-toggle-line">
+    <span class="mode-label">Создание продукта</span>
+    <label class="switch" for="product-mode-toggle" title="Переключить режим продукта">
+      <input type="checkbox" id="product-mode-toggle" {% if product_mode == 'edit' %}checked{% endif %} />
+      <span class="slider"></span>
+    </label>
+    <span class="mode-label">Просмотр и редактирование</span>
+  </div>
+
+  {% if product_mode == 'edit' %}
+  <div id="product-edit-tools" class="mode-panel">
+    <form class="grid-form" method="get" action="/manage">
+      <input type="hidden" name="product_mode" value="edit" />
+      <label>Выбор по названию продукта
+        <select name="selected_product_id">
+          <option value="">Выберите продукт</option>
+          {% for p in product_options %}
+          <option value="{{ p.id }}" {% if selected_product_id == p.id %}selected{% endif %}>
+            {{ p.product_title }} ({{ p.bank_name }}) [ID={{ p.id }}]
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Или ручной ввод ID
+        <input name="selected_product_id_manual" type="number" min="1" placeholder="Введите ID" />
+      </label>
+
+      <div class="form-actions">
+        <button type="submit">Открыть для редактирования</button>
+      </div>
+    </form>
+
+    {% if selected_product_id and not selected_product %}
+      <p class="warn">Запись с выбранным ID не найдена.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card inner-card">
+    {% if product_mode == 'edit' and not selected_product %}
+      <h4>Просмотр и редактирование продукта</h4>
+      <p class="hint">Выберите запись в блоке выше.</p>
+    {% else %}
+      <h4>
+        {% if selected_product %}
+        Редактирование: {{ selected_product.product_title }} (ID={{ selected_product.id }})
+        {% else %}
+        Добавление нового продукта
+        {% endif %}
+      </h4>
+
+      <form
+        class="grid-form"
+        method="post"
+        id="product-form"
+        action="{% if selected_product %}/manage/products/{{ selected_product.id }}/full{% else %}/manage/products{% endif %}"
+      >
+        <label>Название продукта
+          <input name="product_title" value="{{ selected_product.product_title if selected_product else '' }}" maxlength="150" required />
+        </label>
+
+        <label>Банк
+          <select name="bank_id" required>
+            {% for b in banks %}
+            <option value="{{ b.id }}" {% if selected_product and selected_product.bank_id == b.id %}selected{% endif %}>{{ b.bank_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label>Тип продукта
+          <div class="inline-with-action">
+            <select name="type_id" required>
+              {% for t in types %}
+              <option value="{{ t.id }}" {% if selected_product and selected_product.type_id == t.id %}selected{% endif %}>{{ t.type_name }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="plus-btn" onclick="openDialog('typeDialog')">+</button>
+          </div>
+        </label>
+
+        <label>Уровень риска
+          <select name="risk_id" required>
+            {% for r in risks %}
+            <option value="{{ r.id }}" {% if selected_product and selected_product.risk_id == r.id %}selected{% endif %}>{{ r.category }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label>Валюта
+          <div class="inline-with-action">
+            <select name="currency_id" required>
+              {% for c in currencies %}
+              <option value="{{ c.id }}" {% if selected_product and selected_product.currency_id == c.id %}selected{% endif %}>{{ c.currency_code }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="plus-btn" onclick="openDialog('currencyDialog')">+</button>
+          </div>
+        </label>
+
+        <label>Ставка, %
+          <input name="interest_rate" type="number" min="0" max="30" step="0.01" title="Допустимый диапазон: 0..30" value="{{ selected_product.interest_rate if selected_product else '' }}" required />
+          <span class="field-note" title="Допустимый диапазон: 0..30">Диапазон: 0..30</span>
+        </label>
+
+        <label>Мин. взнос
+          <input name="min_deposit" type="number" min="0" max="1000000" step="0.01" title="Допустимый диапазон: 0..1 000 000" value="{{ selected_product.min_deposit if selected_product else '' }}" required />
+          <span class="field-note" title="Допустимый диапазон: 0..1 000 000">Диапазон: 0..1 000 000</span>
+        </label>
+
+        <label>Срок, мес
+          <input name="term_months" type="number" min="0" max="600" title="Допустимый диапазон: 0..600" value="{{ selected_product.term_months if selected_product else '' }}" required />
+          <span class="field-note" title="Допустимый диапазон: 0..600">Диапазон: 0..600</span>
+        </label>
+
+        <label>Описание
+          <input name="description" value="{{ selected_product.description if selected_product and selected_product.description else '' }}" />
+        </label>
+
+        {% if selected_product %}
+        <label class="checkbox-label">
+          <input name="is_active" type="checkbox" {% if selected_product.is_active %}checked{% endif %} />
+          Активный продукт
+        </label>
+        {% endif %}
+
+        <div class="form-actions">
+          <button type="submit">{% if selected_product %}Сохранить изменения{% else %}Создать продукт{% endif %}</button>
+          {% if selected_product %}
+            <a class="ghost-btn" href="/manage?product_mode=create">Перейти к добавлению</a>
+          {% else %}
+            <button type="button" class="ghost-btn" id="clear-product-draft">Очистить форму</button>
+          {% endif %}
+        </div>
+      </form>
+
+      {% if selected_product %}
+      <form method="post" action="/manage/products/{{ selected_product.id }}/delete" class="danger-form" onsubmit="return confirm('Удалить запись безвозвратно?');">
+        <button type="submit" class="danger-btn">Удалить запись</button>
+      </form>
+      {% endif %}
+    {% endif %}
+  </div>
+</section>
+
+<dialog id="typeDialog" class="mini-dialog">
+  <form method="post" action="/manage/product-types" class="grid-form dialog-form">
+    <h4>Новый тип продукта</h4>
+    <label>Название типа
+      <input name="type_name" required />
+    </label>
+    <div class="dialog-actions">
+      <button type="submit">Добавить</button>
+      <button type="button" onclick="closeDialog('typeDialog')">Отмена</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="currencyDialog" class="mini-dialog">
+  <form method="post" action="/manage/currencies" class="grid-form dialog-form">
+    <h4>Новая валюта</h4>
+    <label>Код валюты
+      <input name="currency_code" maxlength="3" required />
+    </label>
+    <div class="dialog-actions">
+      <button type="submit">Добавить</button>
+      <button type="button" onclick="closeDialog('currencyDialog')">Отмена</button>
+    </div>
+  </form>
+</dialog>
+
+{% if message %}
+<dialog id="statusDialog" class="mini-dialog status-dialog">
+  <div class="dialog-form">
+    <h4>{% if message_status == 'success' %}Операция выполнена{% elif message_status == 'error' %}Имеются ошибки ввода{% else %}Информация{% endif %}</h4>
+    <p>{{ message }}</p>
+    <div class="dialog-actions">
+      <button type="button" id="statusDialogClose">OK</button>
+    </div>
+  </div>
+</dialog>
+{% endif %}
+
+<script>
+  function openDialog(id) {
+    const dialog = document.getElementById(id);
+    if (dialog) dialog.showModal();
+  }
+
+  function closeDialog(id) {
+    const dialog = document.getElementById(id);
+    if (dialog) dialog.close();
+  }
+
+  (function () {
+    const key = 'manage_scroll_y';
+    const saved = sessionStorage.getItem(key);
+    if (saved) {
+      window.requestAnimationFrame(() => {
+        window.scrollTo(0, Number(saved) || 0);
+      });
+      sessionStorage.removeItem(key);
+    }
+
+    function rememberScroll() {
+      sessionStorage.setItem(key, String(window.scrollY || window.pageYOffset || 0));
+    }
+
+    document.querySelectorAll('form').forEach((form) => {
+      form.addEventListener('submit', rememberScroll);
+    });
+
+    document.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', rememberScroll);
+    });
+  })();
+
+  (function () {
+    const toggle = document.getElementById('bank-mode-toggle');
+    const createPanel = document.getElementById('bank-create-panel');
+    const editPanel = document.getElementById('bank-edit-panel');
+
+    function syncBankPanels() {
+      if (!toggle || !createPanel || !editPanel) return;
+      const editMode = Boolean(toggle.checked);
+      createPanel.style.display = editMode ? 'none' : 'block';
+      editPanel.style.display = editMode ? 'block' : 'none';
+
+      createPanel.querySelectorAll('input, select, button, textarea').forEach((el) => {
+        if (el.closest('form')) el.disabled = editMode;
+      });
+      editPanel.querySelectorAll('input, select, button, textarea').forEach((el) => {
+        if (el.closest('form')) el.disabled = !editMode;
+      });
+    }
+
+    if (toggle) {
+      toggle.addEventListener('change', syncBankPanels);
+      syncBankPanels();
+    }
+  })();
+
+  (function () {
+    function bindModeToggle(toggleId, modeParam, selectedParams) {
+      const toggle = document.getElementById(toggleId);
+      if (!toggle) return;
+
+      toggle.addEventListener('change', function () {
+        const params = new URLSearchParams(window.location.search);
+        const mode = toggle.checked ? 'edit' : 'create';
+        params.set(modeParam, mode);
+
+        params.delete('message');
+        params.delete('status');
+
+        if (mode === 'create') {
+          selectedParams.forEach((param) => params.delete(param));
+        }
+
+        sessionStorage.setItem('manage_scroll_y', String(window.scrollY || window.pageYOffset || 0));
+        window.location.search = params.toString();
+      });
+    }
+
+    bindModeToggle('type-mode-toggle', 'type_mode', ['selected_type_id', 'selected_type_id_manual']);
+    bindModeToggle('currency-mode-toggle', 'currency_mode', ['selected_currency_id', 'selected_currency_id_manual']);
+    bindModeToggle('product-mode-toggle', 'product_mode', ['selected_product_id', 'selected_product_id_manual']);
+  })();
+
+  (function () {
+    const form = document.getElementById('product-form');
+    if (!form) return;
+
+    const isEditMode = {{ 'true' if selected_product else 'false' }};
+    const storageKey = 'manage_product_draft_v1';
+    const trackedNames = [
+      'product_title',
+      'bank_id',
+      'type_id',
+      'risk_id',
+      'currency_id',
+      'interest_rate',
+      'min_deposit',
+      'term_months',
+      'description'
+    ];
+
+    function saveDraft() {
+      if (isEditMode) return;
+      const payload = {};
+      trackedNames.forEach((name) => {
+        const element = form.elements.namedItem(name);
+        if (element) payload[name] = element.value;
+      });
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    }
+
+    function restoreDraft() {
+      if (isEditMode) {
+        return;
+      }
+
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+
+      try {
+        const payload = JSON.parse(raw);
+        trackedNames.forEach((name) => {
+          if (!(name in payload)) return;
+          const element = form.elements.namedItem(name);
+          if (!element) return;
+          element.value = payload[name];
+        });
+      } catch (error) {
+        localStorage.removeItem(storageKey);
+      }
+    }
+
+    const clearDraftButton = document.getElementById('clear-product-draft');
+    if (clearDraftButton) {
+      clearDraftButton.addEventListener('click', function () {
+        localStorage.removeItem(storageKey);
+        form.reset();
+      });
+    }
+
+    form.addEventListener('input', saveDraft);
+    form.addEventListener('change', saveDraft);
+
+    form.addEventListener('submit', function () {
+      if (!isEditMode) {
+        localStorage.removeItem(storageKey);
+      }
+    });
+
+    restoreDraft();
+  })();
+
+  (function () {
+    document.querySelectorAll('form[data-draft-key]').forEach((form) => {
+      const key = form.getAttribute('data-draft-key');
+      if (!key) return;
+
+      const fields = Array.from(form.querySelectorAll('input[name], select[name], textarea[name]'));
+
+      function save() {
+        const payload = {};
+        fields.forEach((field) => {
+          payload[field.name] = field.value;
+        });
+        localStorage.setItem(key, JSON.stringify(payload));
+      }
+
+      function restore() {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        try {
+          const payload = JSON.parse(raw);
+          fields.forEach((field) => {
+            if (Object.prototype.hasOwnProperty.call(payload, field.name)) {
+              field.value = payload[field.name];
+            }
+          });
+        } catch (error) {
+          localStorage.removeItem(key);
+        }
+      }
+
+      fields.forEach((field) => {
+        field.addEventListener('input', save);
+        field.addEventListener('change', save);
+      });
+
+      restore();
+    });
+  })();
+
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const isBankCreated = params.get('status') === 'success' && params.get('message') === 'bank-created';
+    if (!isBankCreated) return;
+
+    localStorage.removeItem('manage_bank_create_v1');
+    const bankCreateForm = document.querySelector('#bank-create-panel form[action="/manage/banks"]');
+    if (bankCreateForm) {
+      bankCreateForm.reset();
+    }
+  })();
+
+  (function () {
+    const statusDialog = document.getElementById('statusDialog');
+    if (!statusDialog) return;
+
+    function clearStatusParamsFromUrl() {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has('message') && !url.searchParams.has('status')) return;
+      url.searchParams.delete('message');
+      url.searchParams.delete('status');
+      const query = url.searchParams.toString();
+      window.history.replaceState({}, '', query ? `${url.pathname}?${query}${url.hash}` : `${url.pathname}${url.hash}`);
+    }
+
+    const closeButton = document.getElementById('statusDialogClose');
+    if (closeButton) {
+      closeButton.addEventListener('click', function () {
+        statusDialog.close();
+      });
+    }
+
+    statusDialog.addEventListener('close', clearStatusParamsFromUrl);
+    statusDialog.showModal();
+  })();
+</script>
+{% endblock %}
+
+
+
+
+

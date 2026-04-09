@@ -1,0 +1,264 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Агрегация и аналитика</h2>
+  <p>Рынок: средняя ставка <b>{{ market.avg_rate }}</b>%, средний порог входа <b>{{ market.avg_deposit }}</b>, средний срок <b>{{ market.avg_term }}</b> мес.</p>
+</section>
+
+<section class="card">
+  <h3>Сравнение банков (одна строка на банк)</h3>
+  <div class="table-wrap tall">
+    <table>
+      <thead>
+        <tr>
+          <th>Банк</th>
+          <th>Рейтинг</th>
+          <th>Лицензия</th>
+          <th>Продуктов</th>
+          <th>Ср. ставка, %</th>
+          <th>Ставка vs рынок</th>
+          <th>Ср. мин. взнос</th>
+          <th>Взнос vs рынок</th>
+          <th>Ср. срок, мес</th>
+          <th>Срок vs рынок</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in comparison_rows %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Банк</th>
+          <th>Рейтинг</th>
+          <th>Лицензия</th>
+          <th>Продуктов</th>
+          <th>Ср. ставка, %</th>
+          <th>Ставка vs рынок</th>
+          <th>Ср. мин. взнос</th>
+          <th>Взнос vs рынок</th>
+          <th>Ср. срок, мес</th>
+          <th>Срок vs рынок</th>
+        </tr>
+        {% endif %}
+        <tr class="{% if selected_bank_id == row.id %}selected-row{% endif %}">
+          <td><a href="/analytics?selected_bank_id={{ row.id }}">{{ row.bank_name }}</a></td>
+          <td>{{ row.rating }}</td>
+          <td>{{ row.license_no }}</td>
+          <td>{{ row.total_products }}</td>
+          <td>{{ row.avg_rate }}</td>
+          <td>{{ row.rate_phrase }}</td>
+          <td>{{ row.avg_deposit }}</td>
+          <td>{{ row.deposit_phrase }}</td>
+          <td>{{ row.avg_term }}</td>
+          <td>{{ row.term_phrase }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if selected %}
+<section class="card">
+  <h3>Детализация: {{ selected.bank.bank_name }}</h3>
+  <p>Лицензия: {{ selected.bank.license_no }} | Рейтинг: {{ selected.bank.rating }}</p>
+
+  <div class="card-grid analytics-grid">
+    <article class="mini-card">
+      <h4>Всего продуктов</h4>
+      <p class="big small">{{ selected.summary.total_products }}</p>
+    </article>
+    <article class="mini-card">
+      <h4>Средняя ставка</h4>
+      <p class="big small">{{ selected.summary.avg_rate }}%</p>
+      <p class="hint">{{ selected.phrases.rate }}</p>
+    </article>
+    <article class="mini-card">
+      <h4>Средний мин. взнос</h4>
+      <p class="big small">{{ selected.summary.avg_deposit }}</p>
+      <p class="hint">{{ selected.phrases.deposit }}</p>
+    </article>
+    <article class="mini-card">
+      <h4>Средний срок</h4>
+      <p class="big small">{{ selected.summary.avg_term }} мес</p>
+      <p class="hint">{{ selected.phrases.term }}</p>
+    </article>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Продукты выбранного банка</h3>
+  <div class="table-wrap tall">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Название продукта</th>
+          <th>Тип</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in selected.products %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>ID</th>
+          <th>Название продукта</th>
+          <th>Тип</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>{{ row.id }}</td>
+          <td>{{ row.product_title }}</td>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.currency_code }}</td>
+          <td>{{ row.interest_rate }}</td>
+          <td>{{ row.min_deposit }}</td>
+          <td>{{ row.term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Количество продуктов по типам (выбранный банк)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Тип продукта</th>
+          <th>Количество</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in selected.by_type %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Тип продукта</th>
+          <th>Количество</th>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <h3>Средняя ставка по типам продуктов (вне зависимости от банка)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Тип продукта</th>
+          <th>Количество</th>
+          <th>Средняя ставка, %</th>
+          <th>Средний мин. взнос</th>
+          <th>Средний срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in type_analytics %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Тип продукта</th>
+          <th>Количество</th>
+          <th>Средняя ставка, %</th>
+          <th>Средний мин. взнос</th>
+          <th>Средний срок, мес</th>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.total_products }}</td>
+          <td>{{ row.avg_rate }}</td>
+          <td>{{ row.avg_min_deposit }}</td>
+          <td>{{ row.avg_term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Топ-5 по ставке</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Название продукта</th>
+          <th>Банк</th>
+          <th>Тип</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in top_products %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Название продукта</th>
+          <th>Банк</th>
+          <th>Тип</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>{{ row.product_title }}</td>
+          <td>{{ row.bank_name }}</td>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.interest_rate }}</td>
+          <td>{{ row.min_deposit }}</td>
+          <td>{{ row.term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Распределение продуктов по валютам</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Валюта</th>
+          <th>Количество продуктов</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in currency_stats %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>Валюта</th>
+          <th>Количество продуктов</th>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>{{ row.currency_code }}</td>
+          <td>{{ row.products_count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

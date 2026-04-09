@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
@@ -16,6 +16,30 @@
       <a class="nav-link nav-green {% if current_path == '/banks' %}active{% endif %}" href="/banks?reset=1">Поиск банков по кредитному рейтингу</a>
       <a class="nav-link nav-green {% if current_path == '/analytics' %}active{% endif %}" href="/analytics">Агрегация</a>
     </nav>
+    <div class="db-version-strip">
+      <span class="db-version-badge">Версия БД: {{ db_backend_label }}</span>
+
+      {% if db_switch_enabled %}
+      <label class="switch" title="Перейти на {{ db_switch_target_label }}">
+        <input
+          id="db-version-switch"
+          type="checkbox"
+          data-target-url="{{ db_switch_target_url }}"
+          data-target-port="{{ db_switch_target_port }}"
+          data-target-label="{{ db_switch_target_label }}"
+          {% if db_backend_code in ['mysql','mariadb'] %}checked{% endif %}
+        />
+        <span class="slider"></span>
+      </label>
+      <span class="db-version-note">Перейти на {{ db_switch_target_label }}</span>
+      {% else %}
+      <label class="switch switch-disabled" title="Переключатель PostgreSQL / MySQL (заглушка)">
+        <input type="checkbox" disabled {% if db_backend_code in ['mysql','mariadb'] %}checked{% endif %} />
+        <span class="slider"></span>
+      </label>
+      <span class="db-version-note">Переключатель PostgreSQL / MySQL (заглушка)</span>
+      {% endif %}
+    </div>
   </header>
 
   <main>
@@ -30,14 +54,37 @@
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       const manageLink = document.getElementById('manage-nav-link');
-      if (!manageLink) return;
+      if (manageLink) {
+        manageLink.addEventListener('click', function () {
+          alert('Раздел "Ввод" предназначен для оператора. Здесь выполняется ввод, редактирование и удаление данных.');
+        });
+      }
 
-      manageLink.addEventListener('click', function () {
-        alert('Раздел "Ввод" предназначен для оператора. Здесь выполняется ввод, редактирование и удаление данных.');
-      });
+      const dbSwitch = document.getElementById('db-version-switch');
+      if (dbSwitch) {
+        dbSwitch.addEventListener('change', function () {
+          let targetUrl = (dbSwitch.dataset.targetUrl || '').trim();
+          const targetPort = (dbSwitch.dataset.targetPort || '').trim();
+          const targetLabel = dbSwitch.dataset.targetLabel || 'другую версию';
+
+          if (!targetUrl && targetPort) {
+            targetUrl = window.location.protocol + '//' + window.location.hostname + ':' + targetPort;
+          }
+          if (!targetUrl) {
+            alert('Адрес целевой версии не настроен.');
+            dbSwitch.checked = !dbSwitch.checked;
+            return;
+          }
+
+          const confirmed = window.confirm('Перейти на ' + targetLabel + '?');
+          if (confirmed) {
+            window.location.href = targetUrl;
+          } else {
+            dbSwitch.checked = !dbSwitch.checked;
+          }
+        });
+      }
     });
   </script>
 </body>
 </html>
-
-

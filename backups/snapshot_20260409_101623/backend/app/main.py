@@ -1,5 +1,4 @@
-import os
-from datetime import datetime
+﻿from datetime import datetime
 from urllib.parse import quote_plus
 from decimal import Decimal
 from pathlib import Path
@@ -19,15 +18,7 @@ from .schemas import BankCreate, ProductCreate, ProductFullUpdate, ProductRateUp
 SITE_TITLE = "Обозреватель банковских продуктов"
 FOOTER_DB_NAME = "БД Банковские продукты"
 FOOTER_SITE_DESC = "Информационная площадка аналитики банковских продуктов"
-STATIC_ASSET_VERSION = "2026-04-09-03"
-
-DB_BACKEND_CODE = os.getenv("DB_DIALECT", "postgresql").strip().lower()
-DB_BACKEND_LABEL = "MySQL" if DB_BACKEND_CODE in {"mysql", "mariadb"} else "PostgreSQL"
-DB_SWITCH_ENABLED = os.getenv("DB_SWITCH_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
-DB_SWITCH_TARGET_URL = os.getenv("DB_SWITCH_TARGET_URL", "").strip()
-DB_SWITCH_TARGET_LABEL = os.getenv("DB_SWITCH_TARGET_LABEL", "Другая версия").strip() or "Другая версия"
-DB_SWITCH_TARGET_PORT = os.getenv("DB_SWITCH_TARGET_PORT", "8001" if DB_BACKEND_CODE in {"mysql", "mariadb"} else "8000").strip()
-DB_SWITCH_READY = DB_SWITCH_ENABLED
+STATIC_ASSET_VERSION = "2026-04-02-01"
 
 HOME_DB_NAME = "<Информационная система подбора банковских продуктов>"
 HOME_DB_AUTHOR = "<Травкин М.Е.  / ИВТ-Б23>"
@@ -45,14 +36,8 @@ templates.env.globals.update(
     footer_site_desc=FOOTER_SITE_DESC,
     current_year=datetime.now().year,
     static_asset_version=STATIC_ASSET_VERSION,
-    db_backend_code=DB_BACKEND_CODE,
-    db_backend_label=DB_BACKEND_LABEL,
-    db_switch_enabled=DB_SWITCH_ENABLED,
-    db_switch_ready=DB_SWITCH_READY,
-    db_switch_target_url=DB_SWITCH_TARGET_URL,
-    db_switch_target_label=DB_SWITCH_TARGET_LABEL,
-    db_switch_target_port=DB_SWITCH_TARGET_PORT,
 )
+
 RATE_MIN = 0.0
 RATE_MAX = 30.0
 DEPOSIT_MIN = 0.0
@@ -259,7 +244,7 @@ def products_count_by_bank_type(db: Session):
         SELECT
             b.bank_name,
             pt.type_name,
-            COALESCE(COUNT(p.id), 0) AS count
+            COALESCE(COUNT(p.id), 0)::int AS count
         FROM banks b
         CROSS JOIN product_types pt
         LEFT JOIN products p
@@ -279,12 +264,12 @@ def products_count_in_bank(db: Session, bank_name: str):
         """
         SELECT
             b.bank_name,
-            COALESCE(COUNT(p.id), 0) AS count
+            COALESCE(COUNT(p.id), 0)::int AS count
         FROM banks b
         LEFT JOIN products p
             ON p.bank_id = b.id
            AND p.is_active = TRUE
-        WHERE b.bank_name LIKE :bank_name
+        WHERE b.bank_name ILIKE :bank_name
         GROUP BY b.bank_name
         ORDER BY b.bank_name
         """
@@ -298,10 +283,10 @@ def product_summary(db: Session):
         """
         SELECT
             pt.type_name AS product_type,
-            (SELECT COUNT(*) FROM product_types) AS type_count,
-            COALESCE(ROUND(AVG(p.interest_rate), 2), 0) AS avg_rate,
-            COALESCE(ROUND(AVG(p.min_deposit), 2), 0) AS min_deposit_avg,
-            COALESCE(COUNT(p.id), 0) AS total_active_products
+            (SELECT COUNT(*) FROM product_types)::int AS type_count,
+            COALESCE(ROUND(AVG(p.interest_rate)::numeric, 2), 0) AS avg_rate,
+            COALESCE(ROUND(AVG(p.min_deposit)::numeric, 2), 0) AS min_deposit_avg,
+            COALESCE(COUNT(p.id), 0)::int AS total_active_products
         FROM product_types pt
         LEFT JOIN products p
             ON p.type_id = pt.id
@@ -353,9 +338,9 @@ def market_reference(db: Session):
     stmt = text(
         """
         SELECT
-            COALESCE(ROUND(AVG(p.interest_rate), 2), 0) AS avg_rate,
-            COALESCE(ROUND(AVG(p.min_deposit), 2), 0) AS avg_deposit,
-            COALESCE(ROUND(AVG(p.term_months), 2), 0) AS avg_term
+            COALESCE(ROUND(AVG(p.interest_rate)::numeric, 2), 0) AS avg_rate,
+            COALESCE(ROUND(AVG(p.min_deposit)::numeric, 2), 0) AS avg_deposit,
+            COALESCE(ROUND(AVG(p.term_months)::numeric, 2), 0) AS avg_term
         FROM products p
         WHERE p.is_active = TRUE
         """
@@ -399,8 +384,8 @@ def bank_cards(db: Session):
         SELECT
             b.id,
             b.bank_name,
-            COALESCE(COUNT(p.id), 0) AS product_count,
-            COALESCE(ROUND(AVG(p.interest_rate), 2), 0) AS avg_rate
+            COALESCE(COUNT(p.id), 0)::int AS product_count,
+            COALESCE(ROUND(AVG(p.interest_rate)::numeric, 2), 0) AS avg_rate
         FROM banks b
         LEFT JOIN products p
             ON p.bank_id = b.id
@@ -420,10 +405,10 @@ def bank_comparison_rows(db: Session):
             b.bank_name,
             b.license_no,
             b.rating,
-            COALESCE(COUNT(p.id), 0) AS total_products,
-            COALESCE(ROUND(AVG(p.interest_rate), 2), 0) AS avg_rate,
-            COALESCE(ROUND(AVG(p.min_deposit), 2), 0) AS avg_deposit,
-            COALESCE(ROUND(AVG(p.term_months), 2), 0) AS avg_term
+            COALESCE(COUNT(p.id), 0)::int AS total_products,
+            COALESCE(ROUND(AVG(p.interest_rate)::numeric, 2), 0) AS avg_rate,
+            COALESCE(ROUND(AVG(p.min_deposit)::numeric, 2), 0) AS avg_deposit,
+            COALESCE(ROUND(AVG(p.term_months)::numeric, 2), 0) AS avg_term
         FROM banks b
         LEFT JOIN products p
             ON p.bank_id = b.id
@@ -454,10 +439,10 @@ def bank_analytics(db: Session, bank_id: int):
         text(
             """
             SELECT
-                COALESCE(COUNT(p.id), 0) AS total_products,
-                COALESCE(ROUND(AVG(p.interest_rate), 2), 0) AS avg_rate,
-                COALESCE(ROUND(AVG(p.min_deposit), 2), 0) AS avg_deposit,
-                COALESCE(ROUND(AVG(p.term_months), 2), 0) AS avg_term
+                COALESCE(COUNT(p.id), 0)::int AS total_products,
+                COALESCE(ROUND(AVG(p.interest_rate)::numeric, 2), 0) AS avg_rate,
+                COALESCE(ROUND(AVG(p.min_deposit)::numeric, 2), 0) AS avg_deposit,
+                COALESCE(ROUND(AVG(p.term_months)::numeric, 2), 0) AS avg_term
             FROM products p
             WHERE p.bank_id = :bank_id
               AND p.is_active = TRUE
@@ -471,7 +456,7 @@ def bank_analytics(db: Session, bank_id: int):
             """
             SELECT
                 pt.type_name,
-                COALESCE(COUNT(p.id), 0) AS count
+                COALESCE(COUNT(p.id), 0)::int AS count
             FROM product_types pt
             LEFT JOIN products p
                 ON p.type_id = pt.id
@@ -519,10 +504,10 @@ def overall_type_analytics(db: Session):
         """
         SELECT
             pt.type_name,
-            COALESCE(COUNT(p.id), 0) AS total_products,
-            COALESCE(ROUND(AVG(p.interest_rate), 2), 0) AS avg_rate,
-            COALESCE(ROUND(AVG(p.min_deposit), 2), 0) AS avg_min_deposit,
-            COALESCE(ROUND(AVG(p.term_months), 2), 0) AS avg_term_months
+            COALESCE(COUNT(p.id), 0)::int AS total_products,
+            COALESCE(ROUND(AVG(p.interest_rate)::numeric, 2), 0) AS avg_rate,
+            COALESCE(ROUND(AVG(p.min_deposit)::numeric, 2), 0) AS avg_min_deposit,
+            COALESCE(ROUND(AVG(p.term_months)::numeric, 2), 0) AS avg_term_months
         FROM product_types pt
         LEFT JOIN products p
             ON p.type_id = pt.id
@@ -562,7 +547,7 @@ def currency_distribution(db: Session):
         """
         SELECT
             c.currency_code,
-            COALESCE(COUNT(p.id), 0) AS products_count
+            COALESCE(COUNT(p.id), 0)::int AS products_count
         FROM tbl_currencies c
         LEFT JOIN products p
             ON p.currency_id = c.id
@@ -1546,12 +1531,6 @@ def manage_delete_product(product_id: int, db: Session = Depends(get_db)):
             status_code=303,
         )
     return RedirectResponse(url="/manage?product_mode=create&status=success&message=product-deleted", status_code=303)
-
-
-
-
-
-
 
 
 

@@ -1,25 +1,16 @@
 ﻿import os
-from urllib.parse import quote_plus
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DB_DIALECT = os.getenv("DB_DIALECT", "postgresql").strip().lower()
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "banklab")
 DB_USER = os.getenv("DB_USER", "bankuser")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "bankpass")
 
-safe_password = quote_plus(DB_PASSWORD)
-
-if DB_DIALECT in {"postgres", "postgresql"}:
-    driver = "postgresql+psycopg2"
-    DATABASE_URL = f"{driver}://{DB_USER}:{safe_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-elif DB_DIALECT in {"mysql", "mariadb"}:
-    driver = "mysql+pymysql"
-    DATABASE_URL = f"{driver}://{DB_USER}:{safe_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
-else:
-    raise RuntimeError(f"Unsupported DB_DIALECT: {DB_DIALECT}")
+DATABASE_URL = (
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

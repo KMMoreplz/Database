@@ -1,0 +1,43 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ title if title else site_title }}</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ static_asset_version }}" />
+</head>
+<body>
+  <header class="topbar">
+    <h1><a class="brand-link" href="/">{{ site_title }}</a></h1>
+    {% set current_path = request.url.path %}
+    <nav>
+      <a class="nav-link nav-admin {% if current_path == '/manage' %}active{% endif %}" id="manage-nav-link" href="/manage">Ввод</a>
+      <a class="nav-link nav-green {% if current_path == '/products' %}active{% endif %}" href="/products?reset=1">Поиск продуктов</a>
+      <a class="nav-link nav-green {% if current_path == '/banks' %}active{% endif %}" href="/banks?reset=1">Поиск банков по кредитному рейтингу</a>
+      <a class="nav-link nav-green {% if current_path == '/analytics' %}active{% endif %}" href="/analytics">Агрегация</a>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div>{{ current_year }} • {{ footer_db_name }}</div>
+    <div>{{ footer_site_desc }}</div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const manageLink = document.getElementById('manage-nav-link');
+      if (!manageLink) return;
+
+      manageLink.addEventListener('click', function () {
+        alert('Раздел "Ввод" предназначен для оператора. Здесь выполняется ввод, редактирование и удаление данных.');
+      });
+    });
+  </script>
+</body>
+</html>
+
+

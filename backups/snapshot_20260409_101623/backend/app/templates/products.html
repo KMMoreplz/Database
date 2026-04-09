@@ -1,0 +1,175 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>Поиск продуктов (по 1, 2, 3 синхронизированным атрибутам)</h2>
+  <form class="grid-form" method="get" id="product-filter-form">
+    <label>Тип продукта
+      <select id="type_name" name="type_name">
+        <option value="">Все</option>
+        {% for item in type_names %}
+        <option value="{{ item }}" {% if type_name == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Банк
+      <select id="bank_name" name="bank_name">
+        <option value="">Все</option>
+        {% for item in bank_names %}
+        <option value="{{ item }}" {% if bank_name == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Валюта
+      <select id="currency_code" name="currency_code">
+        <option value="">Все</option>
+        {% for item in currency_codes %}
+        <option value="{{ item }}" {% if currency_code == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div class="form-actions">
+      <button type="submit">Найти</button>
+      <a class="ghost-btn" href="/products?reset=1">Сбросить фильтры</a>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Найдено записей: {{ rows|length }}</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Название продукта</th>
+          <th>Тип продукта</th>
+          <th>Банк</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        {% if loop.index0 > 0 and loop.index0 % 20 == 0 %}
+        <tr class="repeat-head">
+          <th>ID</th>
+          <th>Название продукта</th>
+          <th>Тип продукта</th>
+          <th>Банк</th>
+          <th>Валюта</th>
+          <th>Ставка, %</th>
+          <th>Мин. взнос</th>
+          <th>Срок, мес</th>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>{{ row.id }}</td>
+          <td>{{ row.product_name }}</td>
+          <td>{{ row.type_name }}</td>
+          <td>{{ row.bank_name }}</td>
+          <td>{{ row.currency_code }}</td>
+          <td>{{ row.interest_rate }}</td>
+          <td>{{ row.min_deposit }}</td>
+          <td>{{ row.term_months }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  const matrix = {{ matrix | tojson }};
+  const allTypeNames = {{ type_names | tojson }};
+  const allBankNames = {{ bank_names | tojson }};
+  const allCurrencyCodes = {{ currency_codes | tojson }};
+
+  const typeSelect = document.getElementById('type_name');
+  const bankSelect = document.getElementById('bank_name');
+  const currencySelect = document.getElementById('currency_code');
+
+  function unique(values) {
+    return [...new Set(values)].filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }
+
+  function refillSelect(selectEl, values, currentValue) {
+    const nextValues = unique(values);
+    selectEl.innerHTML = '';
+
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = 'Все';
+    selectEl.appendChild(emptyOption);
+
+    nextValues.forEach((value) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      selectEl.appendChild(option);
+    });
+
+    if (currentValue && nextValues.includes(currentValue)) {
+      selectEl.value = currentValue;
+    } else {
+      selectEl.value = '';
+    }
+  }
+
+  function rowsByConstraint(constraints) {
+    return matrix.filter((row) => {
+      const typeOk = !constraints.type_name || row.type_name === constraints.type_name;
+      const bankOk = !constraints.bank_name || row.bank_name === constraints.bank_name;
+      const currencyOk = !constraints.currency_code || row.currency_code === constraints.currency_code;
+      return typeOk && bankOk && currencyOk;
+    });
+  }
+
+  function syncSelects() {
+    const selected = {
+      type_name: typeSelect.value,
+      bank_name: bankSelect.value,
+      currency_code: currencySelect.value,
+    };
+
+    const hasAnyFilter = Boolean(selected.type_name || selected.bank_name || selected.currency_code);
+
+    if (!hasAnyFilter) {
+      refillSelect(typeSelect, allTypeNames, '');
+      refillSelect(bankSelect, allBankNames, '');
+      refillSelect(currencySelect, allCurrencyCodes, '');
+      return;
+    }
+
+    const typeCandidates = rowsByConstraint({
+      bank_name: selected.bank_name,
+      currency_code: selected.currency_code,
+    }).map((row) => row.type_name);
+
+    const bankCandidates = rowsByConstraint({
+      type_name: selected.type_name,
+      currency_code: selected.currency_code,
+    }).map((row) => row.bank_name);
+
+    const currencyCandidates = rowsByConstraint({
+      type_name: selected.type_name,
+      bank_name: selected.bank_name,
+    }).map((row) => row.currency_code);
+
+    refillSelect(typeSelect, selected.bank_name || selected.currency_code ? typeCandidates : allTypeNames, selected.type_name);
+    refillSelect(bankSelect, selected.type_name || selected.currency_code ? bankCandidates : allBankNames, selected.bank_name);
+    refillSelect(currencySelect, selected.type_name || selected.bank_name ? currencyCandidates : allCurrencyCodes, selected.currency_code);
+  }
+
+  typeSelect.addEventListener('change', syncSelects);
+  bankSelect.addEventListener('change', syncSelects);
+  currencySelect.addEventListener('change', syncSelects);
+
+  syncSelects();
+</script>
+{% endblock %}
+

@@ -1,0 +1,43 @@
+name: banklab_pg
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: banklab_pg_db
+    environment:
+      POSTGRES_DB: banklab
+      POSTGRES_USER: bankuser
+      POSTGRES_PASSWORD: bankpass
+    volumes:
+      - postgres_data_pg:/var/lib/postgresql/data
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bankuser -d banklab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: banklab_pg_app
+    environment:
+      DB_DIALECT: postgresql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: banklab
+      DB_USER: bankuser
+      DB_PASSWORD: bankpass
+      DB_SWITCH_ENABLED: "1"
+      DB_SWITCH_TARGET_URL: ""
+      DB_SWITCH_TARGET_LABEL: "MySQL"
+      DB_SWITCH_TARGET_PORT: "8000"
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data_pg:

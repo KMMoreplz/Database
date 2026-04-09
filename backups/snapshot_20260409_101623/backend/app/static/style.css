@@ -474,34 +474,3 @@ dialog::backdrop {
     justify-content: space-between;
   }
 }
-
-.db-version-strip {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-
-.db-version-badge {
-  background: #0f7b9a;
-  color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.db-version-note {
-  color: #d8edf5;
-  font-size: 0.82rem;
-}
-
-.switch.switch-disabled {
-  opacity: 0.7;
-}
-
-.switch.switch-disabled .slider {
-  cursor: not-allowed;
-}

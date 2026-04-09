@@ -1,20 +1,25 @@
+name: banklab_mysql
 services:
   db:
-    image: postgres:16-alpine
+    image: mysql:8.4
     container_name: banklab_db
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
     environment:
-      POSTGRES_DB: banklab
-      POSTGRES_USER: bankuser
-      POSTGRES_PASSWORD: bankpass
+      MYSQL_DATABASE: banklab
+      MYSQL_USER: bankuser
+      MYSQL_PASSWORD: bankpass
+      MYSQL_ROOT_PASSWORD: rootpass
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - mysql_data:/var/lib/mysql
+      - ./db/mysql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/mysql/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bankuser -d banklab"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
 
   app:
     build:
@@ -22,11 +27,16 @@ services:
       dockerfile: Dockerfile
     container_name: banklab_app
     environment:
+      DB_DIALECT: mysql
       DB_HOST: db
-      DB_PORT: "5432"
+      DB_PORT: "3306"
       DB_NAME: banklab
       DB_USER: bankuser
       DB_PASSWORD: bankpass
+      DB_SWITCH_ENABLED: "1"
+      DB_SWITCH_TARGET_URL: ""
+      DB_SWITCH_TARGET_LABEL: "PostgreSQL"
+      DB_SWITCH_TARGET_PORT: "8001"
     ports:
       - "8000:8000"
     depends_on:
@@ -34,4 +44,4 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres_data:
+  mysql_data:
