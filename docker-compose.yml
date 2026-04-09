@@ -1,22 +1,19 @@
 name: banklab_mysql
 services:
   db:
-    image: mysql:8.4
+    image: mariadb:10.11
     container_name: banklab_db
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_DATABASE: banklab
-      MYSQL_USER: bankuser
-      MYSQL_PASSWORD: bankpass
-      MYSQL_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: banklab
+      MARIADB_USER: bankuser
+      MARIADB_PASSWORD: bankpass
+      MARIADB_ROOT_PASSWORD: rootpass
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/mysql/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./db/mysql/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$$MARIADB_USER -p$$MARIADB_PASSWORD --silent"]
       interval: 5s
       timeout: 5s
       retries: 20
