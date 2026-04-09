@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS risk_level (
 
 CREATE TABLE IF NOT EXISTS tbl_currencies (
     id            SMALLINT PRIMARY KEY,
-    currency_code VARCHAR(3) NOT NULL UNIQUE
+    currency_code VARCHAR(3) NOT NULL UNIQUE CHECK (currency_code ~ '^[A-Z]{3}$')
 );
 
 CREATE TABLE IF NOT EXISTS products (
